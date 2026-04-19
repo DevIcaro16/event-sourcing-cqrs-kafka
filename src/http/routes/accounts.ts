@@ -207,19 +207,19 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
       '/:id/statement',
       async ({ params, query }) => {
         return getStatement(params.id, {
-          from:   query.from   ? new Date(query.from)   : undefined,
-          to:     query.to     ? new Date(query.to)     : undefined,
-          type:   query.type,
-          limit:  query.limit  ? Number(query.limit)  : undefined,
+          from: query.from ? new Date(query.from) : undefined,
+          to: query.to ? new Date(query.to) : undefined,
+          type: query.type,
+          limit: query.limit ? Number(query.limit) : undefined,
           offset: query.offset ? Number(query.offset) : undefined,
         }, readStore)
       },
       {
         query: t.Object({
-          from:   t.Optional(t.String({ description: 'Data inicial ISO 8601 (ex: 2025-01-01T00:00:00Z)' })),
-          to:     t.Optional(t.String({ description: 'Data final ISO 8601' })),
-          type:   t.Optional(t.String({ description: 'Filtro por tipo de evento (ex: MoneyDeposited)' })),
-          limit:  t.Optional(t.String({ description: 'Máximo de registros (padrão: 50)' })),
+          from: t.Optional(t.String({ description: 'Data inicial ISO 8601 (ex: 2025-01-01T00:00:00Z)' })),
+          to: t.Optional(t.String({ description: 'Data final ISO 8601' })),
+          type: t.Optional(t.String({ description: 'Filtro por tipo de evento (ex: MoneyDeposited)' })),
+          limit: t.Optional(t.String({ description: 'Máximo de registros (padrão: 50)' })),
           offset: t.Optional(t.String({ description: 'Offset para paginação (padrão: 0)' })),
         }),
         response: {
@@ -249,5 +249,13 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         set.status = 404
         return { error: 'AccountNotFound', message: error.message }
       }
+      // Postgres UUID type mismatch (code 22P02): invalid input syntax for type uuid
+      if ((error as any)?.code === '22P02') {
+        set.status = 400
+        return { error: 'InvalidAccountId', message: 'Account ID must be a valid UUID.' }
+      }
+      set.status = 500
+      console.error('[unhandled]', error)
+      return { error: 'InternalError', message: 'An unexpected error occurred.' }
     })
 }
