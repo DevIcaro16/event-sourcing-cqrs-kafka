@@ -102,3 +102,43 @@ describe('Account.withdraw', () => {
     expect(() => account.withdraw(0)).toThrow(InvalidAmountError)
   })
 })
+
+describe('Account.initiateTransfer', () => {
+  it('emits TransferInitiated event', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.clearPendingEvents()
+    account.initiateTransfer('acc-2', 200)
+    expect(account.pendingEvents[0].type).toBe('TransferInitiated')
+  })
+
+  it('decreases balance on origin', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.initiateTransfer('acc-2', 200)
+    expect(account.balance).toBe(300)
+  })
+
+  it('rejects transfer exceeding available balance', () => {
+    const account = Account.open('acc-1', 'owner-1', 100)
+    expect(() => account.initiateTransfer('acc-2', 101)).toThrow(InsufficientFundsError)
+  })
+
+  it('rejects zero amount', () => {
+    const account = Account.open('acc-1', 'owner-1', 100)
+    expect(() => account.initiateTransfer('acc-2', 0)).toThrow(InvalidAmountError)
+  })
+})
+
+describe('Account.receiveTransfer', () => {
+  it('emits TransferReceived event', () => {
+    const account = Account.open('acc-2', 'owner-2', 0)
+    account.clearPendingEvents()
+    account.receiveTransfer('acc-1', 200)
+    expect(account.pendingEvents[0].type).toBe('TransferReceived')
+  })
+
+  it('increases balance on destination', () => {
+    const account = Account.open('acc-2', 'owner-2', 50)
+    account.receiveTransfer('acc-1', 200)
+    expect(account.balance).toBe(250)
+  })
+})
