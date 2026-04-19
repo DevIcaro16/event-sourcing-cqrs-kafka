@@ -1,5 +1,5 @@
 // src/application/commands/OpenAccount.ts
-import type { EventStore } from '../ports/EventStore'
+import type { CommandDeps } from './_loadAccount'
 import { Account } from '../../domain/account/Account'
 
 export type OpenAccountCommand = {
@@ -10,8 +10,9 @@ export type OpenAccountCommand = {
 
 export async function handleOpenAccount(
   command: OpenAccountCommand,
-  eventStore: EventStore
+  deps: CommandDeps,
 ): Promise<void> {
   const account = Account.open(command.accountId, command.ownerId, command.initialBalance)
-  await eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
+  await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
+  await deps.projector.project(account.pendingEvents, command.accountId)
 }
