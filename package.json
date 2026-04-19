@@ -1,0 +1,14 @@
+{
+  "name": "banking-event-sourcing",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "bun run --watch server.ts",
+    "start": "bun run server.ts",
+    "test": "bun test",
+    "test:integration": "TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test bun test tests/integration"
+  },
+  "dependencies": {
+    "elysia": "^1.4.28",
+    "postgres": "^3.4.9"
+  }
+}
