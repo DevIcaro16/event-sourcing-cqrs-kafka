@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { InvalidAmountError, InsufficientFundsError } from '../../../src/domain/account/AccountErrors'
+import { InvalidAmountError, InsufficientFundsError, InvalidReversalError } from '../../../src/domain/account/AccountErrors'
 import { Account } from '../../../src/domain/account/Account'
 
 describe('Account.open', () => {
@@ -140,5 +140,73 @@ describe('Account.receiveTransfer', () => {
     const account = Account.open('acc-2', 'owner-2', 50)
     account.receiveTransfer('acc-1', 200)
     expect(account.balance).toBe(250)
+  })
+})
+
+describe('Account.lockBalance', () => {
+  it('emits BalanceLocked event', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.clearPendingEvents()
+    account.lockBalance(100, 'guarantee')
+    expect(account.pendingEvents[0].type).toBe('BalanceLocked')
+  })
+
+  it('reduces availableBalance without changing balance', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.lockBalance(100, 'guarantee')
+    expect(account.balance).toBe(500)
+    expect(account.availableBalance).toBe(400)
+    expect(account.lockedBalance).toBe(100)
+  })
+
+  it('rejects lock exceeding available balance', () => {
+    const account = Account.open('acc-1', 'owner-1', 100)
+    expect(() => account.lockBalance(101, 'reason')).toThrow(InsufficientFundsError)
+  })
+})
+
+describe('Account.unlockBalance', () => {
+  it('emits BalanceUnlocked event', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.lockBalance(100, 'guarantee')
+    account.clearPendingEvents()
+    account.unlockBalance(100)
+    expect(account.pendingEvents[0].type).toBe('BalanceUnlocked')
+  })
+
+  it('restores availableBalance', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.lockBalance(100, 'guarantee')
+    account.unlockBalance(100)
+    expect(account.availableBalance).toBe(500)
+    expect(account.lockedBalance).toBe(0)
+  })
+
+  it('rejects unlock exceeding lockedBalance', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.lockBalance(50, 'guarantee')
+    expect(() => account.unlockBalance(100)).toThrow(InvalidReversalError)
+  })
+})
+
+describe('Account.reverseTransaction', () => {
+  it('emits TransactionReversed event', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.withdraw(100)
+    account.clearPendingEvents()
+    account.reverseTransaction('original-event-id', 100)
+    expect(account.pendingEvents[0].type).toBe('TransactionReversed')
+  })
+
+  it('restores balance after reversal', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.withdraw(100)
+    account.reverseTransaction('original-event-id', 100)
+    expect(account.balance).toBe(500)
+  })
+
+  it('rejects reversal of zero amount', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    expect(() => account.reverseTransaction('id', 0)).toThrow(InvalidAmountError)
   })
 })
