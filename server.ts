@@ -111,6 +111,9 @@ const shutdown = async () => {
   await kafkaSubscriber.close()
   await kafkaPublisher.close()
   await dlqPublisher.close()
+  await redis.quit()
+  await writeSql.end()
+  await readSql.end()
   process.exit(0)
 }
 process.on('SIGTERM', shutdown)
