@@ -81,6 +81,7 @@ export class Account extends AggregateRoot {
       fromAccountId: this._id,
       toAccountId,
       amount,
+      balanceAfter: this._balance - amount,
       occurredAt: new Date(),
     })
   }

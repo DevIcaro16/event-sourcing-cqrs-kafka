@@ -80,7 +80,7 @@ export class AccountProjector {
       case 'TransferInitiated': {
         const current = await this.readStore.getBalance(event.fromAccountId)
         if (!current) break
-        const newBalance = current.balance - event.amount
+        const newBalance = event.balanceAfter
         await this.readStore.upsertBalance({
           ...current,
           balance:          newBalance,
@@ -91,7 +91,7 @@ export class AccountProjector {
           accountId:    event.fromAccountId,
           eventType:    'TransferInitiated',
           amount:       event.amount,
-          balanceAfter: newBalance,
+          balanceAfter: event.balanceAfter,
           description:  `Transfer to ${event.toAccountId}`,
           occurredAt:   event.occurredAt,
         })

@@ -27,6 +27,7 @@ export type TransferInitiated = DomainEvent & {
   fromAccountId: string
   toAccountId: string
   amount: number
+  balanceAfter: number
 }
 
 export type TransferReceived = DomainEvent & {

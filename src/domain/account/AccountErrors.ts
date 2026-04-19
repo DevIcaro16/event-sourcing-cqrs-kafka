@@ -26,3 +26,10 @@ export class InvalidReversalError extends Error {
     this.name = 'InvalidReversalError'
   }
 }
+
+export class AccountNotFoundError extends Error {
+  constructor(accountId: string) {
+    super(`Account not found: ${accountId}`)
+    this.name = 'AccountNotFoundError'
+  }
+}

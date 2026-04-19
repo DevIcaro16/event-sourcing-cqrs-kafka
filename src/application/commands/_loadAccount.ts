@@ -1,15 +1,16 @@
 // src/application/commands/_loadAccount.ts
 import { Account } from '../../domain/account/Account'
+import { AccountNotFoundError } from '../../domain/account/AccountErrors'
 import type { EventStore } from '../ports/EventStore'
 import type { SnapshotStore } from '../ports/SnapshotStore'
-import type { DomainEvent } from '../../domain/shared/DomainEvent'
+import type { ProjectorPort } from '../ports/ProjectorPort'
 
 const SNAPSHOT_THRESHOLD = Number(process.env.SNAPSHOT_THRESHOLD ?? 50)
 
 export type CommandDeps = {
   eventStore: EventStore
   snapshotStore: SnapshotStore
-  projector: { project(events: DomainEvent[], aggregateId: string): Promise<void> }
+  projector: ProjectorPort
 }
 
 export async function loadAccount(
@@ -25,7 +26,7 @@ export async function loadAccount(
     return account
   }
   const allEvents = await eventStore.load(accountId)
-  if (allEvents.length === 0) throw new Error(`Account not found: ${accountId}`)
+  if (allEvents.length === 0) throw new AccountNotFoundError(accountId)
   const account = new Account()
   account.loadFromHistory(allEvents)
   if (account.version >= SNAPSHOT_THRESHOLD) {
