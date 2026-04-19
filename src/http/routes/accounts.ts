@@ -11,7 +11,11 @@ import { handleUnlockBalance } from '../../application/commands/UnlockBalance'
 import { handleReverseTransaction } from '../../application/commands/ReverseTransaction'
 import { getBalance } from '../../application/queries/GetBalance'
 import { getStatement } from '../../application/queries/GetStatement'
-import { InsufficientFundsError, InvalidAmountError, InvalidReversalError, AccountNotFoundError } from '../../domain/account/AccountErrors'
+import { InsufficientFundsError, InvalidAmountError, InvalidReversalError } from '../../domain/account/AccountErrors'
+
+const tags = ['Accounts']
+
+const ErrorResponse = t.Object({ error: t.String(), message: t.String() })
 
 export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
   return new Elysia({ prefix: '/accounts' })
@@ -25,9 +29,18 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
       },
       {
         body: t.Object({
-          ownerId: t.String({ minLength: 1 }),
-          initialBalance: t.Number({ minimum: 0 }),
+          ownerId: t.String({ minLength: 1, description: 'ID do proprietário da conta' }),
+          initialBalance: t.Number({ minimum: 0, description: 'Saldo inicial em centavos' }),
         }),
+        response: {
+          202: t.Object({ accountId: t.String() }),
+          422: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Abrir conta',
+          description: 'Cria uma nova conta bancária com saldo inicial.',
+        },
       }
     )
     .post(
@@ -37,7 +50,19 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         set.status = 202
         return { accountId: params.id }
       },
-      { body: t.Object({ amount: t.Number({ exclusiveMinimum: 0 }) }) }
+      {
+        body: t.Object({ amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a depositar (> 0)' }) }),
+        response: {
+          202: t.Object({ accountId: t.String() }),
+          422: ErrorResponse,
+          404: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Depositar',
+          description: 'Adiciona fundos à conta.',
+        },
+      }
     )
     .post(
       '/:id/withdraw',
@@ -46,7 +71,19 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         set.status = 202
         return { accountId: params.id }
       },
-      { body: t.Object({ amount: t.Number({ exclusiveMinimum: 0 }) }) }
+      {
+        body: t.Object({ amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a sacar (> 0)' }) }),
+        response: {
+          202: t.Object({ accountId: t.String() }),
+          422: ErrorResponse,
+          404: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Sacar',
+          description: 'Debita fundos da conta. Requer saldo disponível suficiente.',
+        },
+      }
     )
     .post(
       '/transfer',
@@ -57,10 +94,20 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
       },
       {
         body: t.Object({
-          fromAccountId: t.String({ minLength: 1 }),
-          toAccountId: t.String({ minLength: 1 }),
-          amount: t.Number({ exclusiveMinimum: 0 }),
+          fromAccountId: t.String({ minLength: 1, description: 'Conta de origem' }),
+          toAccountId: t.String({ minLength: 1, description: 'Conta de destino' }),
+          amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a transferir (> 0)' }),
         }),
+        response: {
+          202: t.Object({ fromAccountId: t.String(), toAccountId: t.String() }),
+          422: ErrorResponse,
+          404: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Transferir',
+          description: 'Transfere fundos entre duas contas. Ambas devem existir.',
+        },
       }
     )
     .post(
@@ -72,9 +119,19 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
       },
       {
         body: t.Object({
-          amount: t.Number({ exclusiveMinimum: 0 }),
-          reason: t.String({ minLength: 1 }),
+          amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a bloquear (> 0)' }),
+          reason: t.String({ minLength: 1, description: 'Motivo do bloqueio' }),
         }),
+        response: {
+          202: t.Object({ accountId: t.String() }),
+          422: ErrorResponse,
+          404: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Bloquear saldo',
+          description: 'Reserva parte do saldo disponível sem debitá-lo.',
+        },
       }
     )
     .post(
@@ -84,7 +141,19 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         set.status = 202
         return { accountId: params.id }
       },
-      { body: t.Object({ amount: t.Number({ exclusiveMinimum: 0 }) }) }
+      {
+        body: t.Object({ amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a desbloquear (> 0)' }) }),
+        response: {
+          202: t.Object({ accountId: t.String() }),
+          422: ErrorResponse,
+          404: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Desbloquear saldo',
+          description: 'Libera saldo previamente bloqueado, tornando-o disponível novamente.',
+        },
+      }
     )
     .post(
       '/:id/reverse',
@@ -95,15 +164,43 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
       },
       {
         body: t.Object({
-          originalEventId: t.String({ minLength: 1 }),
-          amount: t.Number({ exclusiveMinimum: 0 }),
+          originalEventId: t.String({ minLength: 1, description: 'ID do evento original a ser revertido' }),
+          amount: t.Number({ exclusiveMinimum: 0, description: 'Valor da reversão (> 0)' }),
         }),
+        response: {
+          202: t.Object({ accountId: t.String() }),
+          422: ErrorResponse,
+          404: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Reverter transação',
+          description: 'Estorna um débito anterior, creditando o valor de volta na conta.',
+        },
       }
     )
     .get(
       '/:id/balance',
       async ({ params }) => {
         return getBalance(params.id, readStore)
+      },
+      {
+        response: {
+          200: t.Object({
+            accountId: t.String(),
+            ownerId: t.String(),
+            balance: t.Number({ description: 'Saldo total' }),
+            availableBalance: t.Number({ description: 'Saldo disponível (total − bloqueado)' }),
+            lockedBalance: t.Number({ description: 'Saldo bloqueado' }),
+            lastEventSeq: t.Number(),
+          }),
+          404: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Consultar saldo',
+          description: 'Retorna o saldo atual da conta a partir do read model (cache Redis → Postgres).',
+        },
       }
     )
     .get(
@@ -119,12 +216,28 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
       },
       {
         query: t.Object({
-          from:   t.Optional(t.String()),
-          to:     t.Optional(t.String()),
-          type:   t.Optional(t.String()),
-          limit:  t.Optional(t.String()),
-          offset: t.Optional(t.String()),
+          from:   t.Optional(t.String({ description: 'Data inicial ISO 8601 (ex: 2025-01-01T00:00:00Z)' })),
+          to:     t.Optional(t.String({ description: 'Data final ISO 8601' })),
+          type:   t.Optional(t.String({ description: 'Filtro por tipo de evento (ex: MoneyDeposited)' })),
+          limit:  t.Optional(t.String({ description: 'Máximo de registros (padrão: 50)' })),
+          offset: t.Optional(t.String({ description: 'Offset para paginação (padrão: 0)' })),
         }),
+        response: {
+          200: t.Array(t.Object({
+            accountId: t.String(),
+            eventType: t.String(),
+            amount: t.Optional(t.Number()),
+            balanceAfter: t.Optional(t.Number()),
+            description: t.Optional(t.String()),
+            occurredAt: t.Date(),
+          })),
+          404: ErrorResponse,
+        },
+        detail: {
+          tags,
+          summary: 'Extrato',
+          description: 'Lista as transações da conta com filtros opcionais de data, tipo e paginação.',
+        },
       }
     )
     .onError(({ error, set }) => {
@@ -132,7 +245,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         set.status = 422
         return { error: error.name, message: error.message }
       }
-      if (error instanceof AccountNotFoundError) {
+      if (error instanceof Error && error.name === 'AccountNotFoundError') {
         set.status = 404
         return { error: 'AccountNotFound', message: error.message }
       }

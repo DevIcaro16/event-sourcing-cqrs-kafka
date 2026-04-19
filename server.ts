@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia'
+import { swagger } from '@elysiajs/swagger'
 import postgres from 'postgres'
 import Redis from 'ioredis'
 import { PostgresEventStore } from './src/infrastructure/postgres/PostgresEventStore'
@@ -29,7 +30,18 @@ const readStoreWithCache = new RedisReadModelCache(drizzleReadStore, redis, READ
 const deps = { eventStore, snapshotStore, projector }
 
 new Elysia()
+  .use(swagger({
+    documentation: {
+      info: {
+        title: 'Banking Event Sourcing API',
+        version: '0.2.0',
+        description: 'API bancária com Event Sourcing e CQRS. Comandos retornam 202 (async); consultas leem do read model (Redis + Postgres).',
+      },
+      tags: [{ name: 'Accounts', description: 'Operações de conta bancária' }],
+    },
+  }))
   .use(accountRoutes(deps, readStoreWithCache))
   .listen(PORT, () => {
     console.log(`Banking API running on port ${PORT}`)
+    console.log(`Swagger UI: http://localhost:${PORT}/swagger`)
   })

@@ -10,6 +10,7 @@
     "db:migrate:read": "bun run src/infrastructure/postgres/read/migrate.ts"
   },
   "dependencies": {
+    "@elysiajs/swagger": "^1.3.1",
     "drizzle-orm": "^0.45.2",
     "elysia": "^1.4.28",
     "ioredis": "^5.10.1",
