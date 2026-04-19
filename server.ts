@@ -32,11 +32,11 @@ const readStoreWithCache = new RedisReadModelCache(drizzleReadStore, redis, READ
 
 const deps = { eventStore, snapshotStore, projector }
 
-function buildDocsPlugin() {
-  const docsUser     = DOCS_USER
-  const docsPassword = DOCS_PASSWORD
+const app = new Elysia()
+  .use(accountRoutes(deps, readStoreWithCache))
 
-  const swaggerConfig = swagger({
+if (NODE_ENV !== 'production') {
+  app.use(swagger({
     documentation: {
       info: {
         title: 'Banking Event Sourcing API',
@@ -45,41 +45,38 @@ function buildDocsPlugin() {
       },
       tags: [{ name: 'Accounts', description: 'Operações de conta bancária' }],
     },
-  })
+  }))
 
-  if (!docsUser || !docsPassword) {
-    return new Elysia({ name: 'docs' }).use(swaggerConfig)
-  }
+  if (DOCS_USER && DOCS_PASSWORD) {
+    const expectedUser = DOCS_USER
+    const expectedPass = DOCS_PASSWORD
 
-  return new Elysia({ name: 'docs' })
-    .guard({
-      beforeHandle({ request, set }) {
-        const auth = request.headers.get('authorization') ?? ''
-        const [scheme, encoded] = auth.split(' ')
-        if (scheme !== 'Basic' || !encoded) {
-          set.status = 401
-          set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
-          return 'Unauthorized'
-        }
-        const decoded  = atob(encoded)
-        const colonIdx = decoded.indexOf(':')
-        const user     = decoded.slice(0, colonIdx)
-        const pass     = decoded.slice(colonIdx + 1)
-        if (user !== docsUser || pass !== docsPassword) {
-          set.status = 401
-          set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
-          return 'Unauthorized'
-        }
-      },
+    app.onBeforeHandle(({ request, set, path }) => {
+      if (!path.startsWith('/swagger')) return
+
+      const auth = request.headers.get('authorization') ?? ''
+      const spaceIdx = auth.indexOf(' ')
+      const scheme  = auth.slice(0, spaceIdx)
+      const encoded = auth.slice(spaceIdx + 1)
+
+      if (scheme !== 'Basic' || !encoded) {
+        set.status = 401
+        set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
+        return 'Unauthorized'
+      }
+
+      const decoded  = atob(encoded)
+      const colonIdx = decoded.indexOf(':')
+      const user     = decoded.slice(0, colonIdx)
+      const pass     = decoded.slice(colonIdx + 1)
+
+      if (user !== expectedUser || pass !== expectedPass) {
+        set.status = 401
+        set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
+        return 'Unauthorized'
+      }
     })
-    .use(swaggerConfig)
-}
-
-const app = new Elysia()
-  .use(accountRoutes(deps, readStoreWithCache))
-
-if (NODE_ENV !== 'production') {
-  app.use(buildDocsPlugin())
+  }
 }
 
 app.listen(PORT, () => {
