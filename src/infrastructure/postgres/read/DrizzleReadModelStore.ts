@@ -26,6 +26,7 @@ export class DrizzleReadModelStore implements ReadModelStore {
       .onConflictDoUpdate({
         target: accountBalances.accountId,
         set: {
+          ownerId:          data.ownerId,
           balance:          String(data.balance),
           availableBalance: String(data.availableBalance),
           lockedBalance:    String(data.lockedBalance),
