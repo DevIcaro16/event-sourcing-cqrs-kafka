@@ -14,13 +14,17 @@ export class KafkaMessagePublisher implements MessagePublisher {
 
   async connect(): Promise<void> {
     await this.producer.connect()
+    console.log(`[kafka:publisher] connected → topic="${this.topic}"`)
   }
 
   async close(): Promise<void> {
     await this.producer.disconnect()
+    console.log(`[kafka:publisher] disconnected → topic="${this.topic}"`)
   }
 
   async publish(events: DomainEvent[], aggregateId: string): Promise<void> {
+    const types = events.map(e => e.type).join(', ')
+    console.log(`[kafka:publisher] publishing ${events.length} event(s) [${types}] → aggregateId=${aggregateId}`)
     const value = JSON.stringify({
       aggregateId,
       events: events.map(e => ({ ...e, occurredAt: e.occurredAt.toISOString() })),
@@ -30,5 +34,6 @@ export class KafkaMessagePublisher implements MessagePublisher {
       topic: this.topic,
       messages: [{ key: aggregateId, value }],
     })
+    console.log(`[kafka:publisher] published → topic="${this.topic}" aggregateId=${aggregateId}`)
   }
 }
