@@ -11,7 +11,7 @@ import { accountRoutes } from './src/http/routes/accounts'
 
 const DATABASE_URL      = process.env.DATABASE_URL      ?? 'postgres://postgres:postgres@localhost:5432/banking'
 const READ_DATABASE_URL = process.env.READ_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/banking_read'
-const REDIS_URL         = process.env.REDIS_URL         ?? 'redis://localhost:6379'
+const REDIS_URL         = process.env.REDIS_URL         ?? 'redis://localhost:6381'
 const READ_MODEL_CACHE_TTL = Number(process.env.READ_MODEL_CACHE_TTL ?? 60)
 const PORT              = Number(process.env.PORT ?? 3000)
 
