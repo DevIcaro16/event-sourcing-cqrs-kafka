@@ -48,7 +48,6 @@ function buildDocsPlugin() {
   })
 
   if (!docsUser || !docsPassword) {
-    // sem credenciais: swagger aberto (conveniência em dev local)
     return new Elysia({ name: 'docs' }).use(swaggerConfig)
   }
 
