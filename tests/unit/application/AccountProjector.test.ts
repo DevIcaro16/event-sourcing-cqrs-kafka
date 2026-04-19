@@ -32,7 +32,7 @@ describe('AccountProjector.project — AccountOpened', () => {
     ], accountId)
 
     expect(readStore.upsertBalance).toHaveBeenCalledTimes(1)
-    const balanceArg = readStore.upsertBalance.mock.calls[0][0]
+    const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
     expect(balanceArg.balance).toBe(500)
     expect(balanceArg.availableBalance).toBe(500)
     expect(balanceArg.lockedBalance).toBe(0)
@@ -53,7 +53,7 @@ describe('AccountProjector.project — MoneyDeposited', () => {
       { type: 'MoneyDeposited', accountId, amount: 200, balanceAfter: 1200, occurredAt: new Date() } as DomainEvent,
     ], accountId)
 
-    const balanceArg = readStore.upsertBalance.mock.calls[0][0]
+    const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
     expect(balanceArg.balance).toBe(1200)
     expect(balanceArg.availableBalance).toBe(1000) // 1200 - 200 (lockedBalance)
     expect(readStore.appendTransaction).toHaveBeenCalledTimes(1)
@@ -72,7 +72,7 @@ describe('AccountProjector.project — BalanceLocked', () => {
       { type: 'BalanceLocked', accountId, amount: 100, reason: 'reserva', occurredAt: new Date() } as DomainEvent,
     ], accountId)
 
-    const balanceArg = readStore.upsertBalance.mock.calls[0][0]
+    const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
     expect(balanceArg.balance).toBe(1000)
     expect(balanceArg.availableBalance).toBe(700) // 800 - 100
     expect(balanceArg.lockedBalance).toBe(300)    // 200 + 100
@@ -90,7 +90,7 @@ describe('AccountProjector.project — TransferInitiated', () => {
       { type: 'TransferInitiated', fromAccountId: fromId, toAccountId: 'acc-2', amount: 300, occurredAt: new Date() } as DomainEvent,
     ], fromId)
 
-    const balanceArg = readStore.upsertBalance.mock.calls[0][0]
+    const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
     expect(balanceArg.balance).toBe(700)          // 1000 - 300
     expect(balanceArg.availableBalance).toBe(500) // 700 - 200 (lockedBalance)
   })
