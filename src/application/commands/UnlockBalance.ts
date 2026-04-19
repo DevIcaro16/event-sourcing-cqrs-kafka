@@ -1,7 +1,7 @@
 // src/application/commands/UnlockBalance.ts
-import type { EventStore } from '../ports/EventStore'
+import type { CommandDeps } from './_loadAccount'
+import { loadAccount } from './_loadAccount'
 import { ConcurrencyError } from '../ports/EventStore'
-import { Account } from '../../domain/account/Account'
 
 export type UnlockBalanceCommand = {
   accountId: string
@@ -12,18 +12,14 @@ const MAX_RETRIES = 3
 
 export async function handleUnlockBalance(
   command: UnlockBalanceCommand,
-  eventStore: EventStore
+  deps: CommandDeps,
 ): Promise<void> {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const history = await eventStore.load(command.accountId)
-    if (history.length === 0) throw new Error(`Account not found: ${command.accountId}`)
-
-    const account = new Account()
-    account.loadFromHistory(history)
+    const account = await loadAccount(command.accountId, deps.eventStore, deps.snapshotStore)
     account.unlockBalance(command.amount)
-
     try {
-      await eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
+      await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
+      await deps.projector.project(account.pendingEvents, command.accountId)
       return
     } catch (err) {
       if (err instanceof ConcurrencyError && attempt < MAX_RETRIES - 1) continue
