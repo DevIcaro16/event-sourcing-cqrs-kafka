@@ -5,7 +5,9 @@
     "dev": "bun run --watch server.ts",
     "start": "bun run server.ts",
     "test": "bun test",
-    "test:integration": "TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test bun test tests/integration"
+    "test:integration": "TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test TEST_READ_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_read_test bun test tests/integration",
+    "db:generate:read": "drizzle-kit generate",
+    "db:migrate:read": "bun run src/infrastructure/postgres/read/migrate.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
