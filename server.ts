@@ -64,6 +64,7 @@ await dlqPublisher.connect()
 const deps = { eventStore, snapshotStore, publisher: kafkaPublisher }
 
 new Elysia()
+  .get('/', ({ redirect }) => redirect('/swagger'))
   .use(accountRoutes(deps, readStoreWithCache))
   .use(swagger({
     documentation: {
