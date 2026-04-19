@@ -102,7 +102,7 @@ export function accountRoutes(eventStore: EventStore) {
         set.status = 422
         return { error: error.name, message: error.message }
       }
-      if (error.message.startsWith('Account not found')) {
+      if (error instanceof Error && error.message.startsWith('Account not found')) {
         set.status = 404
         return { error: 'AccountNotFound', message: error.message }
       }
