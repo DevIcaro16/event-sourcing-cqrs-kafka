@@ -24,11 +24,17 @@ export class KafkaMessageSubscriber implements MessageSubscriber {
     await this.consumer.connect()
     await this.consumer.subscribe({ topic: this.topic, fromBeginning: false })
     await this.consumer.run({
-      eachMessage: async ({ message }) => {
+      autoCommit: false,
+      eachMessage: async ({ topic, partition, message }) => {
         if (!message.value) return
         const { aggregateId, events }: BrokerMessage = JSON.parse(message.value.toString())
         const parsed = events.map(e => ({ ...e, occurredAt: new Date(e.occurredAt) })) as DomainEvent[]
         await handler(parsed, aggregateId)
+        await this.consumer.commitOffsets([{
+          topic,
+          partition,
+          offset: (Number(message.offset) + 1).toString(),
+        }])
       },
     })
   }
