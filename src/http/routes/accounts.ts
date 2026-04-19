@@ -169,15 +169,14 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
     .post(
       '/:id/reverse',
       async ({ params, body, set }) => {
-        await handleReverseTransaction({ accountId: params.id, originalEventId: body.originalEventId, amount: body.amount }, deps)
+        await handleReverseTransaction({ accountId: params.id, originalEventId: body.originalEventId }, deps)
         set.status = 202
         return { accountId: params.id }
       },
       {
         params: AccountIdParams,
         body: t.Object({
-          originalEventId: t.String({ minLength: 1, description: 'ID do evento original a ser revertido' }),
-          amount: t.Number({ exclusiveMinimum: 0, description: 'Valor da reversão (> 0)' }),
+          originalEventId: t.String({ minLength: 1, description: 'UUID do evento (da tabela events) a ser revertido' }),
         }),
         response: {
           202: t.Object({ accountId: t.String() }),
@@ -187,7 +186,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         detail: {
           tags,
           summary: 'Reverter transação',
-          description: 'Estorna um débito anterior, creditando o valor de volta na conta.',
+          description: 'Estorna um débito anterior pelo ID do evento original. O valor é lido automaticamente do event store.',
         },
       }
     )
