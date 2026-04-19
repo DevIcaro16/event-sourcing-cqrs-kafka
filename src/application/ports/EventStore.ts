@@ -16,4 +16,6 @@ export interface EventStore {
   ): Promise<void>
 
   load(aggregateId: string): Promise<DomainEvent[]>
+
+  loadFrom(aggregateId: string, fromSequence: number): Promise<DomainEvent[]>
 }
