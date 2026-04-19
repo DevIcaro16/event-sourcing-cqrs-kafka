@@ -1,3 +1,4 @@
+import './src/polyfill/performance'
 import { Elysia } from 'elysia'
 import { swagger } from '@elysiajs/swagger'
 import postgres from 'postgres'
