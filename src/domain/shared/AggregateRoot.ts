@@ -1,4 +1,3 @@
-// src/domain/shared/AggregateRoot.ts
 import type { DomainEvent } from './DomainEvent'
 
 export abstract class AggregateRoot {
@@ -10,7 +9,7 @@ export abstract class AggregateRoot {
   get baseVersion(): number { return this._baseVersion }
   get pendingEvents(): DomainEvent[] { return [...this._pendingEvents] }
 
-  protected applyEvent(event: DomainEvent): void {
+  protected applyEvent<T extends DomainEvent>(event: T): void {
     this.apply(event)
     this._pendingEvents.push(event)
     this._version++
