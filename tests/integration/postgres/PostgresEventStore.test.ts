@@ -75,3 +75,32 @@ describe('PostgresEventStore.append + load', () => {
     expect(loaded).toHaveLength(3)
   })
 })
+
+describe('PostgresEventStore.loadFrom', () => {
+  it('carrega eventos a partir de uma sequência específica', async () => {
+    const aggregateId = crypto.randomUUID()
+    const events: DomainEvent[] = [
+      { type: 'AccountOpened', accountId: aggregateId, ownerId: 'o', initialBalance: 0, occurredAt: new Date() } as DomainEvent,
+      { type: 'MoneyDeposited', accountId: aggregateId, amount: 100, balanceAfter: 100, occurredAt: new Date() } as DomainEvent,
+      { type: 'MoneyDeposited', accountId: aggregateId, amount: 50, balanceAfter: 150, occurredAt: new Date() } as DomainEvent,
+    ]
+    await store.append(aggregateId, 'Account', events, 0)
+
+    const fromSeq2 = await store.loadFrom(aggregateId, 2)
+    expect(fromSeq2).toHaveLength(2)
+    expect(fromSeq2[0].type).toBe('MoneyDeposited')
+
+    const fromSeq3 = await store.loadFrom(aggregateId, 3)
+    expect(fromSeq3).toHaveLength(1)
+    expect(fromSeq3[0].type).toBe('MoneyDeposited')
+  })
+
+  it('retorna array vazio se fromSequence é maior que o último evento', async () => {
+    const aggregateId = crypto.randomUUID()
+    await store.append(aggregateId, 'Account', [
+      { type: 'AccountOpened', accountId: aggregateId, ownerId: 'o', initialBalance: 0, occurredAt: new Date() } as DomainEvent,
+    ], 0)
+    const result = await store.loadFrom(aggregateId, 99)
+    expect(result).toHaveLength(0)
+  })
+})
