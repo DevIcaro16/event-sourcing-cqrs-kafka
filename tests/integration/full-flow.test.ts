@@ -19,7 +19,7 @@ import { getStatement } from '../../src/application/queries/GetStatement'
 
 const WRITE_DB_URL = process.env.TEST_DATABASE_URL      ?? 'postgres://postgres:postgres@localhost:5433/banking_test'
 const READ_DB_URL  = process.env.TEST_READ_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/banking_read_test'
-const REDIS_URL    = process.env.REDIS_URL              ?? 'redis://localhost:6379'
+const REDIS_URL    = process.env.REDIS_URL              ?? 'redis://localhost:6381'
 
 const writeSql = postgres(WRITE_DB_URL)
 const readSql  = postgres(READ_DB_URL)
