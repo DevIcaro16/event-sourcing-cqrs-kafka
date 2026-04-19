@@ -1,6 +1,7 @@
+// src/domain/account/Account.ts
 import { AggregateRoot } from '../shared/AggregateRoot'
 import type { AccountEvent } from './AccountEvents'
-import { InvalidAmountError } from './AccountErrors'
+import { InvalidAmountError, InsufficientFundsError } from './AccountErrors'
 import type { DomainEvent } from '../shared/DomainEvent'
 
 export class Account extends AggregateRoot {
@@ -28,6 +29,29 @@ export class Account extends AggregateRoot {
     return account
   }
 
+  deposit(amount: number): void {
+    if (amount <= 0) throw new InvalidAmountError(amount)
+    this.applyEvent({
+      type: 'MoneyDeposited',
+      accountId: this._id,
+      amount,
+      balanceAfter: this._balance + amount,
+      occurredAt: new Date(),
+    })
+  }
+
+  withdraw(amount: number): void {
+    if (amount <= 0) throw new InvalidAmountError(amount)
+    if (amount > this.availableBalance) throw new InsufficientFundsError(this.availableBalance, amount)
+    this.applyEvent({
+      type: 'MoneyWithdrawn',
+      accountId: this._id,
+      amount,
+      balanceAfter: this._balance - amount,
+      occurredAt: new Date(),
+    })
+  }
+
   protected apply(event: DomainEvent): void {
     const e = event as AccountEvent
     switch (e.type) {
@@ -35,6 +59,12 @@ export class Account extends AggregateRoot {
         this._id = e.accountId
         this._ownerId = e.ownerId
         this._balance = e.initialBalance
+        break
+      case 'MoneyDeposited':
+        this._balance = e.balanceAfter
+        break
+      case 'MoneyWithdrawn':
+        this._balance = e.balanceAfter
         break
       default:
         break
