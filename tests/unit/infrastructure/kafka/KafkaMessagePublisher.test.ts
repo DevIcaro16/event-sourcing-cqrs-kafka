@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test'
+import { describe, it, expect, mock } from 'bun:test'
 import { KafkaMessagePublisher } from '../../../../src/infrastructure/kafka/KafkaMessagePublisher'
 import type { DomainEvent } from '../../../../src/domain/shared/DomainEvent'
 
@@ -42,5 +42,13 @@ describe('KafkaMessagePublisher', () => {
 
     await publisher.close()
     expect(producer.disconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('aceita array vazio sem lançar erro', async () => {
+    const producer = makeProducer()
+    const publisher = new KafkaMessagePublisher(producer as any, 'banking.account.events')
+    await publisher.publish([], 'acc-empty')
+    const call = (producer.send.mock.calls as any)[0][0]
+    expect(JSON.parse(call.messages[0].value).events).toHaveLength(0)
   })
 })
