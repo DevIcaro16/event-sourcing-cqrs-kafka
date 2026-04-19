@@ -17,6 +17,13 @@ const tags = ['Accounts']
 
 const ErrorResponse = t.Object({ error: t.String(), message: t.String() })
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Shared params schema — rejects non-UUID account IDs before they reach the DB
+const AccountIdParams = t.Object({
+  id: t.String({ pattern: UUID_PATTERN.source, description: 'UUID da conta' }),
+})
+
 export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
   return new Elysia({ prefix: '/accounts' })
     .post(
@@ -51,6 +58,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         return { accountId: params.id }
       },
       {
+        params: AccountIdParams,
         body: t.Object({ amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a depositar (> 0)' }) }),
         response: {
           202: t.Object({ accountId: t.String() }),
@@ -72,6 +80,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         return { accountId: params.id }
       },
       {
+        params: AccountIdParams,
         body: t.Object({ amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a sacar (> 0)' }) }),
         response: {
           202: t.Object({ accountId: t.String() }),
@@ -118,6 +127,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         return { accountId: params.id }
       },
       {
+        params: AccountIdParams,
         body: t.Object({
           amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a bloquear (> 0)' }),
           reason: t.String({ minLength: 1, description: 'Motivo do bloqueio' }),
@@ -142,6 +152,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         return { accountId: params.id }
       },
       {
+        params: AccountIdParams,
         body: t.Object({ amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a desbloquear (> 0)' }) }),
         response: {
           202: t.Object({ accountId: t.String() }),
@@ -163,6 +174,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         return { accountId: params.id }
       },
       {
+        params: AccountIdParams,
         body: t.Object({
           originalEventId: t.String({ minLength: 1, description: 'ID do evento original a ser revertido' }),
           amount: t.Number({ exclusiveMinimum: 0, description: 'Valor da reversão (> 0)' }),
@@ -185,6 +197,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         return getBalance(params.id, readStore)
       },
       {
+        params: AccountIdParams,
         response: {
           200: t.Object({
             accountId: t.String(),
@@ -215,6 +228,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         }, readStore)
       },
       {
+        params: AccountIdParams,
         query: t.Object({
           from: t.Optional(t.String({ description: 'Data inicial ISO 8601 (ex: 2025-01-01T00:00:00Z)' })),
           to: t.Optional(t.String({ description: 'Data final ISO 8601' })),
@@ -249,8 +263,8 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         set.status = 404
         return { error: 'AccountNotFound', message: error.message }
       }
-      // Postgres UUID type mismatch (code 22P02): invalid input syntax for type uuid
-      if ((error as any)?.code === '22P02') {
+      // Elysia params validation failure (UUID pattern mismatch)
+      if (error instanceof Error && error.name === 'ValidationError') {
         set.status = 400
         return { error: 'InvalidAccountId', message: 'Account ID must be a valid UUID.' }
       }
