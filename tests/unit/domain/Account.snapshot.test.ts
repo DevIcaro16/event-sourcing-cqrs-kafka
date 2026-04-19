@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 import { Account } from '../../../src/domain/account/Account'
 import type { AccountSnapshot } from '../../../src/application/ports/SnapshotStore'
+import type { DomainEvent } from '../../../src/domain/shared/DomainEvent'
 
 describe('Account.toSnapshot()', () => {
   it('captura o estado atual da conta', () => {
@@ -50,7 +51,7 @@ describe('Account.fromSnapshot()', () => {
 
     const restored = Account.fromSnapshot(snapshot)
     restored.loadFromHistory([
-      { type: 'MoneyDeposited', accountId: 'acc-4', amount: 100, balanceAfter: 800, occurredAt: new Date() },
+      { type: 'MoneyDeposited', accountId: 'acc-4', amount: 100, balanceAfter: 800, occurredAt: new Date() } as DomainEvent,
     ])
     expect(restored.balance).toBe(800)
     expect(restored.version).toBe(3)
