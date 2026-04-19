@@ -16,8 +16,9 @@ const REDIS_URL            = process.env.REDIS_URL            ?? 'redis://localh
 const READ_MODEL_CACHE_TTL = Number(process.env.READ_MODEL_CACHE_TTL ?? 60)
 const PORT                 = Number(process.env.PORT ?? 3000)
 const NODE_ENV             = process.env.NODE_ENV ?? 'development'
-const DOCS_USER            = process.env.DOCS_USER
-const DOCS_PASSWORD        = process.env.DOCS_PASSWORD
+// Em ambientes não-produção, DOCS_PATH define o caminho da UI.
+// Use um token aleatório (ex: /docs/abc123) para dificultar descoberta.
+const DOCS_PATH            = process.env.DOCS_PATH ?? '/swagger'
 
 const writeSql = postgres(DATABASE_URL)
 const readSql  = postgres(READ_DATABASE_URL)
@@ -32,51 +33,26 @@ const readStoreWithCache = new RedisReadModelCache(drizzleReadStore, redis, READ
 
 const deps = { eventStore, snapshotStore, projector }
 
-const docsUser = DOCS_USER
-const docsPass = DOCS_PASSWORD
-
-new Elysia()
+const app = new Elysia()
   .use(accountRoutes(deps, readStoreWithCache))
-  .use(NODE_ENV !== 'production'
-    ? swagger({
-        documentation: {
-          info: {
-            title: 'Banking Event Sourcing API',
-            version: '0.2.0',
-            description: 'API bancária com Event Sourcing e CQRS. Comandos retornam 202 (async); consultas leem do read model (Redis + Postgres).',
-          },
-          tags: [{ name: 'Accounts', description: 'Operações de conta bancária' }],
-        },
-      })
-    : new Elysia())
-  .onRequest(({ request, set }) => {
-    if (!docsUser || !docsPass) return
-    const { pathname } = new URL(request.url)
-    if (!pathname.startsWith('/swagger')) return
 
-    const auth      = request.headers.get('authorization') ?? ''
-    const spaceIdx  = auth.indexOf(' ')
-    const scheme    = auth.slice(0, spaceIdx)
-    const encoded   = auth.slice(spaceIdx + 1)
+if (NODE_ENV !== 'production') {
+  app.use(swagger({
+    path: DOCS_PATH,
+    documentation: {
+      info: {
+        title: 'Banking Event Sourcing API',
+        version: '0.2.0',
+        description: 'API bancária com Event Sourcing e CQRS. Comandos retornam 202 (async); consultas leem do read model (Redis + Postgres).',
+      },
+      tags: [{ name: 'Accounts', description: 'Operações de conta bancária' }],
+    },
+  }))
+}
 
-    if (scheme !== 'Basic' || !encoded) {
-      set.status = 401
-      set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
-      return 'Unauthorized'
-    }
-
-    const decoded  = atob(encoded)
-    const colonIdx = decoded.indexOf(':')
-
-    if (decoded.slice(0, colonIdx) !== docsUser || decoded.slice(colonIdx + 1) !== docsPass) {
-      set.status = 401
-      set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
-      return 'Unauthorized'
-    }
-  })
-  .listen(PORT, () => {
-    console.log(`Banking API running on port ${PORT}`)
-    if (NODE_ENV !== 'production') {
-      console.log(`Swagger UI: http://localhost:${PORT}/swagger`)
-    }
-  })
+app.listen(PORT, () => {
+  console.log(`Banking API running on port ${PORT}`)
+  if (NODE_ENV !== 'production') {
+    console.log(`Swagger UI: http://localhost:${PORT}${DOCS_PATH}`)
+  }
+})
