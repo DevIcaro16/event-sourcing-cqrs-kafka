@@ -1,7 +1,7 @@
 // src/domain/account/Account.ts
 import { AggregateRoot } from '../shared/AggregateRoot'
 import type { AccountEvent } from './AccountEvents'
-import { InvalidAmountError, InsufficientFundsError } from './AccountErrors'
+import { InvalidAmountError, InsufficientFundsError, InvalidReversalError } from './AccountErrors'
 import type { DomainEvent } from '../shared/DomainEvent'
 
 export class Account extends AggregateRoot {
@@ -75,6 +75,41 @@ export class Account extends AggregateRoot {
     })
   }
 
+  lockBalance(amount: number, reason: string): void {
+    if (amount <= 0) throw new InvalidAmountError(amount)
+    if (amount > this.availableBalance) throw new InsufficientFundsError(this.availableBalance, amount)
+    this.applyEvent({
+      type: 'BalanceLocked',
+      accountId: this._id,
+      amount,
+      reason,
+      occurredAt: new Date(),
+    })
+  }
+
+  unlockBalance(amount: number): void {
+    if (amount <= 0) throw new InvalidAmountError(amount)
+    if (amount > this._lockedBalance) throw new InvalidReversalError(`unlock amount ${amount} exceeds locked balance ${this._lockedBalance}`)
+    this.applyEvent({
+      type: 'BalanceUnlocked',
+      accountId: this._id,
+      amount,
+      occurredAt: new Date(),
+    })
+  }
+
+  reverseTransaction(originalEventId: string, amount: number): void {
+    if (amount <= 0) throw new InvalidAmountError(amount)
+    this.applyEvent({
+      type: 'TransactionReversed',
+      accountId: this._id,
+      originalEventId,
+      amount,
+      balanceAfter: this._balance + amount,
+      occurredAt: new Date(),
+    })
+  }
+
   protected apply(event: DomainEvent): void {
     const e = event as AccountEvent
     switch (e.type) {
@@ -95,7 +130,14 @@ export class Account extends AggregateRoot {
       case 'TransferReceived':
         this._balance = e.balanceAfter
         break
-      default:
+      case 'BalanceLocked':
+        this._lockedBalance += e.amount
+        break
+      case 'BalanceUnlocked':
+        this._lockedBalance -= e.amount
+        break
+      case 'TransactionReversed':
+        this._balance = e.balanceAfter
         break
     }
   }
