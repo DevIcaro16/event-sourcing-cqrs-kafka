@@ -8,7 +8,12 @@
     "test:integration": "TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test bun test tests/integration"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "elysia": "^1.4.28",
+    "ioredis": "^5.10.1",
     "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10"
   }
 }
