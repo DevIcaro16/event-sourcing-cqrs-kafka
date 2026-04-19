@@ -12,6 +12,13 @@ const publisher  = KafkaMessagePublisher.create(kafka, TEST_TOPIC)
 const subscriber = KafkaMessageSubscriber.create(kafka, TEST_TOPIC, `banking-test-${Date.now()}`)
 
 beforeAll(async () => {
+  const admin = kafka.admin()
+  await admin.connect()
+  await admin.createTopics({
+    waitForLeaders: true,
+    topics: [{ topic: TEST_TOPIC, numPartitions: 1, replicationFactor: 1 }],
+  })
+  await admin.disconnect()
   await publisher.connect()
 })
 

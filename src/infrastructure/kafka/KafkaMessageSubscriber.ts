@@ -23,19 +23,24 @@ export class KafkaMessageSubscriber implements MessageSubscriber {
   ): Promise<void> {
     await this.consumer.connect()
     await this.consumer.subscribe({ topic: this.topic, fromBeginning: false })
-    await this.consumer.run({
-      autoCommit: false,
-      eachMessage: async ({ topic, partition, message }) => {
-        if (!message.value) return
-        const { aggregateId, events }: BrokerMessage = JSON.parse(message.value.toString())
-        const parsed = events.map(e => ({ ...e, occurredAt: new Date(e.occurredAt) })) as DomainEvent[]
-        await handler(parsed, aggregateId)
-        await this.consumer.commitOffsets([{
-          topic,
-          partition,
-          offset: (Number(message.offset) + 1).toString(),
-        }])
-      },
+
+    await new Promise<void>((resolve, reject) => {
+      this.consumer.on(this.consumer.events.GROUP_JOIN, () => resolve())
+      this.consumer.on(this.consumer.events.CRASH, ({ payload }) => reject(payload.error))
+      this.consumer.run({
+        autoCommit: false,
+        eachMessage: async ({ topic, partition, message }) => {
+          if (!message.value) return
+          const { aggregateId, events }: BrokerMessage = JSON.parse(message.value.toString())
+          const parsed = events.map(e => ({ ...e, occurredAt: new Date(e.occurredAt) })) as DomainEvent[]
+          await handler(parsed, aggregateId)
+          await this.consumer.commitOffsets([{
+            topic,
+            partition,
+            offset: (Number(message.offset) + 1).toString(),
+          }])
+        },
+      }).catch(reject)
     })
   }
 
