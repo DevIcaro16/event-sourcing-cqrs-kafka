@@ -14,5 +14,5 @@ export async function handleOpenAccount(
 ): Promise<void> {
   const account = Account.open(command.accountId, command.ownerId, command.initialBalance)
   await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
-  await deps.projector.project(account.pendingEvents, command.accountId)
+  await deps.publisher.publish(account.pendingEvents, command.accountId)
 }

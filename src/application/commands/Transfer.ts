@@ -25,8 +25,8 @@ export async function handleTransfer(
     try {
       await deps.eventStore.append(command.fromAccountId, 'Account', from.pendingEvents, from.baseVersion)
       await deps.eventStore.append(command.toAccountId, 'Account', to.pendingEvents, to.baseVersion)
-      await deps.projector.project(from.pendingEvents, command.fromAccountId)
-      await deps.projector.project(to.pendingEvents, command.toAccountId)
+      await deps.publisher.publish(from.pendingEvents, command.fromAccountId)
+      await deps.publisher.publish(to.pendingEvents, command.toAccountId)
       return
     } catch (err) {
       if (err instanceof ConcurrencyError && attempt < MAX_RETRIES - 1) continue
