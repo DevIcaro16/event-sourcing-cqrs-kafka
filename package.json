@@ -19,5 +19,8 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10"
+  },
+  "patchedDependencies": {
+    "kafkajs@2.2.4": "patches/kafkajs@2.2.4.patch"
   }
 }

@@ -49,16 +49,16 @@ const kafkaPublisher  = KafkaMessagePublisher.create(kafka, 'banking.account.eve
 const dlqPublisher    = KafkaMessagePublisher.create(kafka, 'banking.account.events.dlq')
 const kafkaSubscriber = KafkaMessageSubscriber.create(kafka, 'banking.account.events', 'banking-projector')
 
-// Criar topics se não existirem
 const admin = kafka.admin()
 await admin.connect()
-await admin.createTopics({
-  waitForLeaders: true,
-  topics: [
-    { topic: 'banking.account.events', numPartitions: 1, replicationFactor: 1 },
-    { topic: 'banking.account.events.dlq', numPartitions: 1, replicationFactor: 1 },
-  ],
-}).catch(() => {}) // ignora erro se os topics já existem
+const existing = new Set(await admin.listTopics())
+const missing = [
+  { topic: 'banking.account.events', numPartitions: 1, replicationFactor: 1 },
+  { topic: 'banking.account.events.dlq', numPartitions: 1, replicationFactor: 1 },
+].filter(t => !existing.has(t.topic))
+if (missing.length > 0) {
+  await admin.createTopics({ waitForLeaders: true, topics: missing })
+}
 await admin.disconnect()
 
 await kafkaPublisher.connect()
