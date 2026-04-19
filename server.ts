@@ -32,56 +32,51 @@ const readStoreWithCache = new RedisReadModelCache(drizzleReadStore, redis, READ
 
 const deps = { eventStore, snapshotStore, projector }
 
-const app = new Elysia()
+const docsUser = DOCS_USER
+const docsPass = DOCS_PASSWORD
+
+new Elysia()
   .use(accountRoutes(deps, readStoreWithCache))
+  .use(NODE_ENV !== 'production'
+    ? swagger({
+        documentation: {
+          info: {
+            title: 'Banking Event Sourcing API',
+            version: '0.2.0',
+            description: 'API bancária com Event Sourcing e CQRS. Comandos retornam 202 (async); consultas leem do read model (Redis + Postgres).',
+          },
+          tags: [{ name: 'Accounts', description: 'Operações de conta bancária' }],
+        },
+      })
+    : new Elysia())
+  .onRequest(({ request, set }) => {
+    if (!docsUser || !docsPass) return
+    const { pathname } = new URL(request.url)
+    if (!pathname.startsWith('/swagger')) return
 
-if (NODE_ENV !== 'production') {
-  app.use(swagger({
-    documentation: {
-      info: {
-        title: 'Banking Event Sourcing API',
-        version: '0.2.0',
-        description: 'API bancária com Event Sourcing e CQRS. Comandos retornam 202 (async); consultas leem do read model (Redis + Postgres).',
-      },
-      tags: [{ name: 'Accounts', description: 'Operações de conta bancária' }],
-    },
-  }))
+    const auth      = request.headers.get('authorization') ?? ''
+    const spaceIdx  = auth.indexOf(' ')
+    const scheme    = auth.slice(0, spaceIdx)
+    const encoded   = auth.slice(spaceIdx + 1)
 
-  if (DOCS_USER && DOCS_PASSWORD) {
-    const expectedUser = DOCS_USER
-    const expectedPass = DOCS_PASSWORD
+    if (scheme !== 'Basic' || !encoded) {
+      set.status = 401
+      set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
+      return 'Unauthorized'
+    }
 
-    app.onBeforeHandle(({ request, set, path }) => {
-      if (!path.startsWith('/swagger')) return
+    const decoded  = atob(encoded)
+    const colonIdx = decoded.indexOf(':')
 
-      const auth = request.headers.get('authorization') ?? ''
-      const spaceIdx = auth.indexOf(' ')
-      const scheme  = auth.slice(0, spaceIdx)
-      const encoded = auth.slice(spaceIdx + 1)
-
-      if (scheme !== 'Basic' || !encoded) {
-        set.status = 401
-        set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
-        return 'Unauthorized'
-      }
-
-      const decoded  = atob(encoded)
-      const colonIdx = decoded.indexOf(':')
-      const user     = decoded.slice(0, colonIdx)
-      const pass     = decoded.slice(colonIdx + 1)
-
-      if (user !== expectedUser || pass !== expectedPass) {
-        set.status = 401
-        set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
-        return 'Unauthorized'
-      }
-    })
-  }
-}
-
-app.listen(PORT, () => {
-  console.log(`Banking API running on port ${PORT}`)
-  if (NODE_ENV !== 'production') {
-    console.log(`Swagger UI: http://localhost:${PORT}/swagger`)
-  }
-})
+    if (decoded.slice(0, colonIdx) !== docsUser || decoded.slice(colonIdx + 1) !== docsPass) {
+      set.status = 401
+      set.headers['WWW-Authenticate'] = 'Basic realm="API Docs"'
+      return 'Unauthorized'
+    }
+  })
+  .listen(PORT, () => {
+    console.log(`Banking API running on port ${PORT}`)
+    if (NODE_ENV !== 'production') {
+      console.log(`Swagger UI: http://localhost:${PORT}/swagger`)
+    }
+  })
