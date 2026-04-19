@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
-import { eq, and, gte, lte } from 'drizzle-orm'
+import { eq, and, gte, lte, asc } from 'drizzle-orm'
 import type postgres from 'postgres'
 import { accountBalances, accountTransactions } from './schema'
 import type { ReadModelStore, AccountBalanceData, AccountTransactionData, StatementFilters } from '../../../application/ports/ReadModelStore'
@@ -74,7 +74,7 @@ export class DrizzleReadModelStore implements ReadModelStore {
       .select()
       .from(accountTransactions)
       .where(and(...conditions))
-      .orderBy(accountTransactions.occurredAt)
+      .orderBy(asc(accountTransactions.occurredAt), asc(accountTransactions.id))
       .limit(filters.limit ?? 50)
       .offset(filters.offset ?? 0)
 

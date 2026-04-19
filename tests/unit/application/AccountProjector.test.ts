@@ -80,18 +80,90 @@ describe('AccountProjector.project — BalanceLocked', () => {
 })
 
 describe('AccountProjector.project — TransferInitiated', () => {
-  it('debita balance da conta origem', async () => {
+  it('usa balanceAfter do evento para debitar conta origem', async () => {
     const readStore = makeReadStore()
     const cache = makeCacheInvalidator()
     const projector = new AccountProjector(readStore, cache)
     const fromId = 'acc-1'
 
     await projector.project([
-      { type: 'TransferInitiated', fromAccountId: fromId, toAccountId: 'acc-2', amount: 300, occurredAt: new Date() } as DomainEvent,
+      { type: 'TransferInitiated', fromAccountId: fromId, toAccountId: 'acc-2', amount: 300, balanceAfter: 700, occurredAt: new Date() } as DomainEvent,
     ], fromId)
 
     const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
-    expect(balanceArg.balance).toBe(700)          // 1000 - 300
+    expect(balanceArg.balance).toBe(700)          // balanceAfter do evento
     expect(balanceArg.availableBalance).toBe(500) // 700 - 200 (lockedBalance)
+  })
+})
+
+describe('AccountProjector.project — MoneyWithdrawn', () => {
+  it('usa balanceAfter do evento e preserva lockedBalance', async () => {
+    const readStore = makeReadStore()
+    const cache = makeCacheInvalidator()
+    const projector = new AccountProjector(readStore, cache)
+    const accountId = 'acc-1'
+
+    await projector.project([
+      { type: 'MoneyWithdrawn', accountId, amount: 100, balanceAfter: 900, occurredAt: new Date() } as DomainEvent,
+    ], accountId)
+
+    const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
+    expect(balanceArg.balance).toBe(900)
+    expect(balanceArg.availableBalance).toBe(700) // 900 - 200 (lockedBalance)
+    expect(readStore.appendTransaction).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('AccountProjector.project — TransferReceived', () => {
+  it('usa balanceAfter do evento na conta destino', async () => {
+    const readStore = makeReadStore()
+    const cache = makeCacheInvalidator()
+    const projector = new AccountProjector(readStore, cache)
+    const accountId = 'acc-1'
+
+    await projector.project([
+      { type: 'TransferReceived', accountId, fromAccountId: 'acc-2', amount: 500, balanceAfter: 1500, occurredAt: new Date() } as DomainEvent,
+    ], accountId)
+
+    const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
+    expect(balanceArg.balance).toBe(1500)
+    expect(balanceArg.availableBalance).toBe(1300) // 1500 - 200 (lockedBalance)
+    expect(readStore.appendTransaction).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('AccountProjector.project — BalanceUnlocked', () => {
+  it('libera saldo locked sem alterar balance', async () => {
+    const readStore = makeReadStore()
+    const cache = makeCacheInvalidator()
+    const projector = new AccountProjector(readStore, cache)
+    const accountId = 'acc-1'
+
+    await projector.project([
+      { type: 'BalanceUnlocked', accountId, amount: 200, occurredAt: new Date() } as DomainEvent,
+    ], accountId)
+
+    const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
+    expect(balanceArg.balance).toBe(1000)           // inalterado
+    expect(balanceArg.availableBalance).toBe(1000)  // 800 + 200 (unlocked)
+    expect(balanceArg.lockedBalance).toBe(0)         // 200 - 200
+  })
+})
+
+describe('AccountProjector.project — TransactionReversed', () => {
+  it('usa balanceAfter do evento na reversão', async () => {
+    const readStore = makeReadStore()
+    const cache = makeCacheInvalidator()
+    const projector = new AccountProjector(readStore, cache)
+    const accountId = 'acc-1'
+
+    await projector.project([
+      { type: 'TransactionReversed', accountId, originalEventId: 'evt-x', amount: 100, balanceAfter: 1100, occurredAt: new Date() } as DomainEvent,
+    ], accountId)
+
+    const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
+    expect(balanceArg.balance).toBe(1100)
+    expect(balanceArg.availableBalance).toBe(900) // 1100 - 200 (lockedBalance)
+    expect(readStore.appendTransaction).toHaveBeenCalledTimes(1)
   })
 })

@@ -11,7 +11,7 @@ import { handleUnlockBalance } from '../../application/commands/UnlockBalance'
 import { handleReverseTransaction } from '../../application/commands/ReverseTransaction'
 import { getBalance } from '../../application/queries/GetBalance'
 import { getStatement } from '../../application/queries/GetStatement'
-import { InsufficientFundsError, InvalidAmountError, InvalidReversalError } from '../../domain/account/AccountErrors'
+import { InsufficientFundsError, InvalidAmountError, InvalidReversalError, AccountNotFoundError } from '../../domain/account/AccountErrors'
 
 export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
   return new Elysia({ prefix: '/accounts' })
@@ -132,7 +132,7 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
         set.status = 422
         return { error: error.name, message: error.message }
       }
-      if ('message' in error && typeof error.message === 'string' && error.message.startsWith('Account not found')) {
+      if (error instanceof AccountNotFoundError) {
         set.status = 404
         return { error: 'AccountNotFound', message: error.message }
       }
