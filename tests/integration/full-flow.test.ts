@@ -9,6 +9,8 @@ import { RedisSnapshotStore } from '../../src/infrastructure/redis/RedisSnapshot
 import { RedisReadModelCache } from '../../src/infrastructure/redis/RedisReadModelCache'
 import { RedisCacheInvalidator } from '../../src/infrastructure/redis/RedisCacheInvalidator'
 import { AccountProjector } from '../../src/application/projectors/AccountProjector'
+import type { MessagePublisher } from '../../src/application/ports/MessagePublisher'
+import type { DomainEvent } from '../../src/domain/shared/DomainEvent'
 import { handleOpenAccount } from '../../src/application/commands/OpenAccount'
 import { handleDeposit } from '../../src/application/commands/Deposit'
 import { handleWithdraw } from '../../src/application/commands/Withdraw'
@@ -18,8 +20,8 @@ import { getBalance } from '../../src/application/queries/GetBalance'
 import { getStatement } from '../../src/application/queries/GetStatement'
 
 const WRITE_DB_URL = process.env.TEST_DATABASE_URL      ?? 'postgres://postgres:postgres@localhost:5433/banking_test'
-const READ_DB_URL  = process.env.TEST_READ_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/banking_read_test'
-const REDIS_URL    = process.env.REDIS_URL              ?? 'redis://localhost:6381'
+const READ_DB_URL  = process.env.TEST_READ_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5435/banking_read_test'
+const REDIS_URL    = process.env.TEST_REDIS_URL         ?? 'redis://localhost:6380'
 
 const writeSql = postgres(WRITE_DB_URL)
 const readSql  = postgres(READ_DB_URL)
@@ -32,7 +34,16 @@ const cacheInvalidator = new RedisCacheInvalidator(redis)
 const projector        = new AccountProjector(drizzleReadStore, cacheInvalidator)
 const readStore        = new RedisReadModelCache(drizzleReadStore, redis, 60)
 
-const deps = { eventStore, snapshotStore, projector }
+// Publisher síncrono para testes: chama o projector diretamente, sem Kafka
+class SyncMessagePublisher implements MessagePublisher {
+  constructor(private readonly proj: AccountProjector) {}
+  async publish(events: DomainEvent[], aggregateId: string): Promise<void> {
+    await this.proj.project(events, aggregateId)
+  }
+}
+
+const publisher = new SyncMessagePublisher(projector)
+const deps = { eventStore, snapshotStore, publisher }
 
 beforeAll(async () => {
   const writeSchema = readFileSync('./src/infrastructure/postgres/schema.sql', 'utf-8')
@@ -128,7 +139,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     expect(toBalance.balance).toBe(600)
   })
 
-  it('segundo acesso ao saldo vem do cache Redis (sem bater no DB)', async () => {
+  it('segundo acesso ao saldo vem do cache Redis', async () => {
     const accountId = crypto.randomUUID()
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 750 }, deps)
 
