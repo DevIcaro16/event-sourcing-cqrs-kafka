@@ -113,6 +113,44 @@ O índice composto suporta filtros por `account_id` + `occurred_at` + `event_typ
 
 ---
 
+## Ports do Read Side
+
+```typescript
+// application/ports/ReadModelStore.ts
+export interface ReadModelStore {
+  upsertBalance(data: AccountBalanceData): Promise<void>
+  appendTransaction(data: AccountTransactionData): Promise<void>
+  getBalance(accountId: string): Promise<AccountBalanceData | null>
+  getStatement(accountId: string, filters: StatementFilters): Promise<AccountTransactionData[]>
+}
+
+export type AccountBalanceData = {
+  accountId: string
+  ownerId: string
+  balance: number
+  availableBalance: number
+  lockedBalance: number
+  lastEventSeq: number
+}
+
+export type AccountTransactionData = {
+  accountId: string
+  eventType: string
+  amount?: number
+  balanceAfter?: number
+  description?: string
+  occurredAt: Date
+}
+
+export type StatementFilters = {
+  from?: Date
+  to?: Date
+  type?: string
+  limit?: number
+  offset?: number
+}
+```
+
 ## Projector
 
 ```typescript
