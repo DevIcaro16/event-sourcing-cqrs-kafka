@@ -52,6 +52,29 @@ export class Account extends AggregateRoot {
     })
   }
 
+  initiateTransfer(toAccountId: string, amount: number): void {
+    if (amount <= 0) throw new InvalidAmountError(amount)
+    if (amount > this.availableBalance) throw new InsufficientFundsError(this.availableBalance, amount)
+    this.applyEvent({
+      type: 'TransferInitiated',
+      fromAccountId: this._id,
+      toAccountId,
+      amount,
+      occurredAt: new Date(),
+    })
+  }
+
+  receiveTransfer(fromAccountId: string, amount: number): void {
+    this.applyEvent({
+      type: 'TransferReceived',
+      accountId: this._id,
+      fromAccountId,
+      amount,
+      balanceAfter: this._balance + amount,
+      occurredAt: new Date(),
+    })
+  }
+
   protected apply(event: DomainEvent): void {
     const e = event as AccountEvent
     switch (e.type) {
@@ -64,6 +87,12 @@ export class Account extends AggregateRoot {
         this._balance = e.balanceAfter
         break
       case 'MoneyWithdrawn':
+        this._balance = e.balanceAfter
+        break
+      case 'TransferInitiated':
+        this._balance -= e.amount
+        break
+      case 'TransferReceived':
         this._balance = e.balanceAfter
         break
       default:
