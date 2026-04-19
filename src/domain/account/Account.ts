@@ -3,6 +3,7 @@ import { AggregateRoot } from '../shared/AggregateRoot'
 import type { AccountEvent } from './AccountEvents'
 import { InvalidAmountError, InsufficientFundsError, InvalidReversalError } from './AccountErrors'
 import type { DomainEvent } from '../shared/DomainEvent'
+import type { AccountSnapshot } from '../../application/ports/SnapshotStore'
 
 export class Account extends AggregateRoot {
   private _id: string = ''
@@ -15,6 +16,26 @@ export class Account extends AggregateRoot {
   get balance(): number { return this._balance }
   get lockedBalance(): number { return this._lockedBalance }
   get availableBalance(): number { return this._balance - this._lockedBalance }
+
+  static fromSnapshot(snapshot: AccountSnapshot): Account {
+    const account = new Account()
+    account._id = snapshot.id
+    account._ownerId = snapshot.ownerId
+    account._balance = snapshot.balance
+    account._lockedBalance = snapshot.lockedBalance
+    account.restoreVersion(snapshot.version)
+    return account
+  }
+
+  toSnapshot(): AccountSnapshot {
+    return {
+      id: this._id,
+      ownerId: this._ownerId,
+      balance: this._balance,
+      lockedBalance: this._lockedBalance,
+      version: this.version,
+    }
+  }
 
   static open(accountId: string, ownerId: string, initialBalance: number): Account {
     if (initialBalance < 0) throw new InvalidAmountError(initialBalance)

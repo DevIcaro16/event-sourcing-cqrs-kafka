@@ -28,5 +28,10 @@ export abstract class AggregateRoot {
     this._baseVersion = this._version
   }
 
+  protected restoreVersion(version: number): void {
+    this._version = version
+    this._baseVersion = version
+  }
+
   protected abstract apply(event: DomainEvent): void
 }
