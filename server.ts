@@ -27,7 +27,11 @@ const DOCS_PASSWORD      = process.env.DOCS_PASSWORD
 const writeSql = postgres(DATABASE_URL)
 const readSql  = postgres(READ_DATABASE_URL)
 const redis    = new Redis(REDIS_URL)
-const kafka    = new Kafka({ clientId: 'banking-api', brokers: KAFKA_BROKERS })
+const kafka    = new Kafka({
+  clientId: 'banking-api',
+  brokers: KAFKA_BROKERS,
+  logLevel: 1, // WARN — silencia logs INFO do kafkajs
+})
 
 const eventStore       = new PostgresEventStore(writeSql)
 const drizzleReadStore = new DrizzleReadModelStore(readSql)
@@ -39,6 +43,18 @@ const readStoreWithCache = new RedisReadModelCache(drizzleReadStore, redis, READ
 const kafkaPublisher  = KafkaMessagePublisher.create(kafka, 'banking.account.events')
 const dlqPublisher    = KafkaMessagePublisher.create(kafka, 'banking.account.events.dlq')
 const kafkaSubscriber = KafkaMessageSubscriber.create(kafka, 'banking.account.events', 'banking-projector')
+
+// Criar topics se não existirem
+const admin = kafka.admin()
+await admin.connect()
+await admin.createTopics({
+  waitForLeaders: true,
+  topics: [
+    { topic: 'banking.account.events', numPartitions: 1, replicationFactor: 1 },
+    { topic: 'banking.account.events.dlq', numPartitions: 1, replicationFactor: 1 },
+  ],
+}).catch(() => {}) // ignora erro se os topics já existem
+await admin.disconnect()
 
 await kafkaPublisher.connect()
 await dlqPublisher.connect()
