@@ -1,4 +1,3 @@
-import './src/polyfill/performance'
 import { Elysia } from 'elysia'
 import { swagger } from '@elysiajs/swagger'
 import postgres from 'postgres'
@@ -32,6 +31,11 @@ const kafka    = new Kafka({
   clientId: 'banking-api',
   brokers: KAFKA_BROKERS,
   logLevel: 1, // WARN — silencia logs INFO do kafkajs
+  retry: {
+    retries: 20,
+    initialRetryTime: 300,
+    maxRetryTime: 60_000,
+  },
 })
 
 const eventStore       = new PostgresEventStore(writeSql)
