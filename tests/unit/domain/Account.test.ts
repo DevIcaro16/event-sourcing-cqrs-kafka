@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import { InvalidAmountError, InsufficientFundsError } from '../../../src/domain/account/AccountErrors'
-import { Account } from '@domain/account/Account'
+import { Account } from '../../../src/domain/account/Account'
 
 describe('Account.open', () => {
   it('emits AccountOpened event with correct data', () => {
