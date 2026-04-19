@@ -19,7 +19,7 @@ export async function handleUnlockBalance(
     account.unlockBalance(command.amount)
     try {
       await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
-      await deps.projector.project(account.pendingEvents, command.accountId)
+      await deps.publisher.publish(account.pendingEvents, command.accountId)
       return
     } catch (err) {
       if (err instanceof ConcurrencyError && attempt < MAX_RETRIES - 1) continue
