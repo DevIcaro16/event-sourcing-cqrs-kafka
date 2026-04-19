@@ -8,7 +8,7 @@
     "test:integration": "TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test bun test tests/integration"
   },
   "dependencies": {
-    "elysia": "latest",
-    "postgres": "latest"
+    "elysia": "^1.4.28",
+    "postgres": "^3.4.9"
   }
 }
