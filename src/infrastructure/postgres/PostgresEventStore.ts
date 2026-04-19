@@ -65,4 +65,16 @@ export class PostgresEventStore implements EventStore {
       typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload
     )
   }
+
+  async findEventById(eventId: string, aggregateId: string): Promise<DomainEvent | null> {
+    const rows = await this.sql<{ payload: DomainEvent | string }[]>`
+      SELECT payload
+      FROM events
+      WHERE id = ${eventId}::uuid
+        AND aggregate_id = ${aggregateId}::uuid
+    `
+    if (rows.length === 0) return null
+    const row = rows[0]
+    return typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload
+  }
 }

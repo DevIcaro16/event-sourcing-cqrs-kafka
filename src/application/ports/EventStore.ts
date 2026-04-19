@@ -18,4 +18,7 @@ export interface EventStore {
   load(aggregateId: string): Promise<DomainEvent[]>
 
   loadFrom(aggregateId: string, fromSequence: number): Promise<DomainEvent[]>
+
+  /** Returns the event that belongs to aggregateId with the given id, or null if not found. */
+  findEventById(eventId: string, aggregateId: string): Promise<DomainEvent | null>
 }
