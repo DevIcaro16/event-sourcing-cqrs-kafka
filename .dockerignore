@@ -7,3 +7,4 @@ docs/
 kind-config.yaml
 scripts/
 coverage/
+docker-compose*.yml
