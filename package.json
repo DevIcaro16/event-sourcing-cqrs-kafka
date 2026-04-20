@@ -7,7 +7,16 @@
     "test": "bun test",
     "test:integration": "TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test TEST_READ_DATABASE_URL=postgres://postgres:postgres@localhost:5435/banking_read_test TEST_REDIS_URL=redis://localhost:6380 TEST_KAFKA_BROKERS=localhost:9093 bun test tests/integration",
     "db:generate:read": "drizzle-kit generate",
-    "db:migrate:read": "bun run src/infrastructure/postgres/read/migrate.ts"
+    "db:migrate:read": "bun run src/infrastructure/postgres/read/migrate.ts",
+    "k8s:cluster:create": "kind create cluster --config kind-config.yaml --name banking",
+    "k8s:cluster:delete": "kind delete cluster --name banking",
+    "k8s:setup": "./scripts/setup-metallb.sh",
+    "k8s:image:load": "docker build -t banking-event-sourcing:latest . && kind load docker-image banking-event-sourcing:latest --name banking",
+    "k8s:deploy": "kubectl apply -f k8s/postgres/ -f k8s/postgres-read/ -f k8s/redis/ -f k8s/kafka/ -f k8s/app/ -n banking",
+    "k8s:undeploy": "kubectl delete -f k8s/postgres/ -f k8s/postgres-read/ -f k8s/redis/ -f k8s/kafka/ -f k8s/app/ -n banking --ignore-not-found",
+    "k8s:status": "kubectl get all -n banking",
+    "k8s:logs": "kubectl logs -f deployment/banking-app -n banking",
+    "k8s:restart": "kubectl rollout restart deployment/banking-app -n banking && kubectl rollout status deployment/banking-app -n banking"
   },
   "dependencies": {
     "@elysiajs/swagger": "^1.3.1",
