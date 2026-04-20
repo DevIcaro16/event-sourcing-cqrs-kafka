@@ -2,6 +2,7 @@
 import type { CommandDeps } from './_loadAccount'
 import { loadAccount } from './_loadAccount'
 import { ConcurrencyError } from '../ports/EventStore'
+import { transactionsTotal, transactionAmount } from '../../infrastructure/telemetry/metrics'
 
 export type TransferCommand = {
   fromAccountId: string
@@ -27,6 +28,8 @@ export async function handleTransfer(
       await deps.eventStore.append(command.toAccountId, 'Account', to.pendingEvents, to.baseVersion)
       await deps.publisher.publish(from.pendingEvents, command.fromAccountId)
       await deps.publisher.publish(to.pendingEvents, command.toAccountId)
+      transactionsTotal.add(1, { type: 'transfer' })
+      transactionAmount.record(command.amount, { type: 'transfer' })
       return
     } catch (err) {
       if (err instanceof ConcurrencyError && attempt < MAX_RETRIES - 1) continue
