@@ -15,7 +15,8 @@ export function withHttpMetrics(app: Elysia): Elysia {
       })
     })
     .onError({ as: 'global' }, ({ request, error, _reqStart }: any) => {
-      const duration = Date.now() - (_reqStart ?? Date.now())
+      if (_reqStart == null) return
+      const duration = Date.now() - _reqStart
       const url = new URL(request.url)
       const status = 'status' in error ? String((error as any).status) : '500'
       httpRequestDuration.record(duration, {
