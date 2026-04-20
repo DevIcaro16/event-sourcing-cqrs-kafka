@@ -1,12 +1,13 @@
 import type { Kafka, Producer } from 'kafkajs'
 import type { MessagePublisher } from '../../application/ports/MessagePublisher'
 import type { DomainEvent } from '../../domain/shared/DomainEvent'
+import { kafkaPublishedTotal } from '../telemetry/metrics'
 
 export class KafkaMessagePublisher implements MessagePublisher {
   constructor(
     private readonly producer: Producer,
     private readonly topic: string,
-  ) {}
+  ) { }
 
   static create(kafka: Kafka, topic: string): KafkaMessagePublisher {
     return new KafkaMessagePublisher(kafka.producer(), topic)
@@ -34,6 +35,7 @@ export class KafkaMessagePublisher implements MessagePublisher {
       topic: this.topic,
       messages: [{ key: aggregateId, value }],
     })
+    kafkaPublishedTotal.add(events.length, { topic: this.topic })
     console.log(`[kafka:publisher] published → topic="${this.topic}" aggregateId=${aggregateId}`)
   }
 }
