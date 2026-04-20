@@ -4,3 +4,5 @@ dist/
 .env.*
 !.env.example
 docs/*
+k8s/**/secret.yaml
+k8s/**/secrets.yaml
