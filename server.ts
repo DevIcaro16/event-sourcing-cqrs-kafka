@@ -1,3 +1,4 @@
+import './src/infrastructure/telemetry/otel'
 import { Elysia } from 'elysia'
 import { swagger } from '@elysiajs/swagger'
 import postgres from 'postgres'
@@ -8,11 +9,13 @@ import { DrizzleReadModelStore } from './src/infrastructure/postgres/read/Drizzl
 import { RedisSnapshotStore } from './src/infrastructure/redis/RedisSnapshotStore'
 import { RedisReadModelCache } from './src/infrastructure/redis/RedisReadModelCache'
 import { RedisCacheInvalidator } from './src/infrastructure/redis/RedisCacheInvalidator'
+import { RedisCanonicalBalanceCache } from './src/infrastructure/redis/RedisCanonicalBalanceCache'
 import { AccountProjector } from './src/application/projectors/AccountProjector'
 import { KafkaMessagePublisher } from './src/infrastructure/kafka/KafkaMessagePublisher'
 import { KafkaMessageSubscriber } from './src/infrastructure/kafka/KafkaMessageSubscriber'
 import { retryWithBackoff } from './src/infrastructure/kafka/retryWithBackoff'
 import { accountRoutes } from './src/http/routes/accounts'
+import { withHttpMetrics } from './src/http/middleware/httpMetrics'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/banking'
 const READ_DATABASE_URL = process.env.READ_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5434/banking_read'
@@ -39,6 +42,7 @@ const eventStore = new PostgresEventStore(writeSql)
 const drizzleReadStore = new DrizzleReadModelStore(readSql)
 const snapshotStore = new RedisSnapshotStore(redis)
 const cacheInvalidator = new RedisCacheInvalidator(redis)
+const canonicalCache = new RedisCanonicalBalanceCache(redis)
 const projector = new AccountProjector(drizzleReadStore, cacheInvalidator)
 const readStoreWithCache = new RedisReadModelCache(drizzleReadStore, redis, READ_MODEL_CACHE_TTL)
 
@@ -63,9 +67,9 @@ await dlqPublisher.connect()
 
 const deps = { eventStore, snapshotStore, publisher: kafkaPublisher }
 
-new Elysia()
+withHttpMetrics(new Elysia())
   .get('/', ({ redirect }) => redirect('/swagger'))
-  .use(accountRoutes(deps, readStoreWithCache))
+  .use(accountRoutes(deps, readStoreWithCache, cacheInvalidator, canonicalCache))
   .use(swagger({
     documentation: {
       info: {
