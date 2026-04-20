@@ -120,14 +120,17 @@ export class Account extends AggregateRoot {
     })
   }
 
-  reverseTransaction(originalEventId: string, amount: number): void {
+  reverseTransaction(originalEventId: string, amount: number, originalEventType: 'MoneyDeposited' | 'MoneyWithdrawn'): void {
     if (amount <= 0) throw new InvalidAmountError(amount)
+    const balanceAfter = originalEventType === 'MoneyDeposited'
+      ? this._balance - amount
+      : this._balance + amount
     this.applyEvent({
       type: 'TransactionReversed',
       accountId: this._id,
       originalEventId,
       amount,
-      balanceAfter: this._balance + amount,
+      balanceAfter,
       occurredAt: new Date(),
     })
   }
