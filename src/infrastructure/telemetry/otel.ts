@@ -26,7 +26,3 @@ export const meterProvider = new MeterProvider({
 })
 
 metrics.setGlobalMeterProvider(meterProvider)
-
-process.on('SIGTERM', async () => {
-  await meterProvider.shutdown()
-})
