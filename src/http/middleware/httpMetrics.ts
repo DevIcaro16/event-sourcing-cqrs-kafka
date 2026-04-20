@@ -4,7 +4,7 @@ import { httpRequestDuration } from '../../infrastructure/telemetry/metrics'
 
 export function withHttpMetrics(app: Elysia): Elysia {
   return app
-    .derive(() => ({ _reqStart: Date.now() }))
+    .derive({ as: 'global' }, () => ({ _reqStart: Date.now() }))
     .onAfterHandle({ as: 'global' }, ({ request, set, _reqStart }: any) => {
       const duration = Date.now() - _reqStart
       const url = new URL(request.url)
@@ -23,5 +23,5 @@ export function withHttpMetrics(app: Elysia): Elysia {
         'http.route': url.pathname,
         'http.status_code': status,
       })
-    })
+    }) as unknown as Elysia
 }
