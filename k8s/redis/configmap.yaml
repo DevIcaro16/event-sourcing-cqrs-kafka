@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: banking
+data:
+  redis.conf: |
+    appendonly yes
+    dir /data
+    save 60 1
