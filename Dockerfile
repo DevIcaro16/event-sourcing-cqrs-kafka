@@ -7,8 +7,9 @@ RUN bun install --frozen-lockfile
 
 FROM oven/bun:1.3-alpine AS prod
 WORKDIR /app
+ENV PORT=3001
 COPY --from=build /app/node_modules ./node_modules
 COPY src/ ./src/
-COPY server.ts tsconfig.json drizzle.config.ts ./
+COPY server.ts tsconfig.json ./
 EXPOSE 3001
 CMD ["bun", "run", "server.ts"]
