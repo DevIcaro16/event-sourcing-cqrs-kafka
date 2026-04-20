@@ -8,3 +8,5 @@ data:
   KAFKA_BROKERS: "kafka.banking.svc.cluster.local:9092"
   READ_MODEL_CACHE_TTL: "300"
   SNAPSHOT_THRESHOLD: "50"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4318"
+  OTEL_SERVICE_NAME: "banking-api"
