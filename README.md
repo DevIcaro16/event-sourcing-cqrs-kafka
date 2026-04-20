@@ -1,81 +1,81 @@
 # banking-event-sourcing
 
-Sistema bancário de estudo construído sobre **Event Sourcing** e **CQRS**, rodando em um cluster Kubernetes local (kind).
+A study banking system built on **Event Sourcing** and **CQRS**, running on a local Kubernetes cluster (kind).
 
 ---
 
 ## Stack
 
-| Camada | Tecnologia |
+| Layer | Technology |
 |---|---|
 | Runtime | [Bun](https://bun.sh) |
-| Framework HTTP | [Elysia](https://elysiajs.com) |
-| Banco de dados (write) | PostgreSQL 16 |
-| Banco de dados (read) | PostgreSQL 16 (read model separado) |
-| Cache de read model | Redis 7 |
-| Mensageria | Kafka (KRaft mode, sem Zookeeper) |
+| HTTP Framework | [Elysia](https://elysiajs.com) |
+| Write database | PostgreSQL 16 |
+| Read database | PostgreSQL 16 (separate read model) |
+| Read model cache | Redis 7 |
+| Messaging | Kafka (KRaft mode, no Zookeeper) |
 | ORM / migrations | Drizzle ORM |
-| Observabilidade | Prometheus + Grafana + OpenTelemetry |
-| Orquestração | Kubernetes (kind) |
+| Observability | Prometheus + Grafana + OpenTelemetry |
+| Orchestration | Kubernetes (kind) |
 
 ---
 
-## Padrões
+## Patterns
 
-- **Event Sourcing** — estado da conta reconstruído a partir de eventos imutáveis armazenados no PostgreSQL
-- **CQRS** — writes via command handlers com append ao event store; reads via projeção em banco separado
-- **Snapshot** — a cada N eventos, snapshot do estado é salvo para evitar replay completo
-- **Optimistic Concurrency** — `baseVersion` previne conflitos de escrita concorrente; retry automático com até 3 tentativas
-- **Read model cache** — saldo e extrato servidos do Redis com TTL configurável; cache invalidado via projeção Kafka
-- **Canonical balance cache** — cache separado de saldo canônico com detecção de drift entre read model e estado reconstruído
-- **Ports & Adapters** — domínio isolado de infraestrutura via interfaces (`EventStore`, `MessagePublisher`, `MessageSubscriber`)
-- **Observabilidade** — métricas HTTP, de negócio e Kafka exportadas via OTel SDK → OTel Collector → Prometheus
+- **Event Sourcing** — account state rebuilt from immutable events stored in PostgreSQL
+- **CQRS** — writes via command handlers appending to the event store; reads via a projected read model in a separate database
+- **Snapshot** — every N events, a state snapshot is saved to avoid full event replay
+- **Optimistic Concurrency** — `baseVersion` prevents concurrent write conflicts; automatic retry up to 3 attempts
+- **Read model cache** — balance and statement served from Redis with configurable TTL; cache invalidated via Kafka projection
+- **Canonical balance cache** — separate canonical balance cache with drift detection between read model and rebuilt state
+- **Ports & Adapters** — domain isolated from infrastructure via interfaces (`EventStore`, `MessagePublisher`, `MessageSubscriber`)
+- **Observability** — HTTP, business and Kafka metrics exported via OTel SDK → OTel Collector → Prometheus
 
 ---
 
 ## API
 
-Prefixo: `/accounts`
+Base path: `/accounts`
 
-| Método | Rota | Descrição |
+| Method | Route | Description |
 |---|---|---|
-| `POST` | `/` | Abrir conta |
-| `POST` | `/:id/deposit` | Depositar |
-| `POST` | `/:id/withdraw` | Sacar |
-| `POST` | `/transfer` | Transferir entre contas |
-| `POST` | `/:id/lock` | Bloquear saldo |
-| `POST` | `/:id/unlock` | Desbloquear saldo |
-| `POST` | `/:id/reverse` | Estornar transação |
-| `GET` | `/:id/balance` | Consultar saldo |
-| `GET` | `/:id/statement` | Extrato de eventos |
+| `POST` | `/` | Open account |
+| `POST` | `/:id/deposit` | Deposit |
+| `POST` | `/:id/withdraw` | Withdraw |
+| `POST` | `/transfer` | Transfer between accounts |
+| `POST` | `/:id/lock` | Lock balance |
+| `POST` | `/:id/unlock` | Unlock balance |
+| `POST` | `/:id/reverse` | Reverse transaction |
+| `GET` | `/:id/balance` | Get balance |
+| `GET` | `/:id/statement` | Get event statement |
 
-Documentação interativa: `GET /swagger`
+Interactive docs: `GET /swagger`
 
 ---
 
-## Rodando localmente (Kubernetes)
+## Running locally (Kubernetes)
 
-### Pré-requisitos
+### Prerequisites
 
 `bun`, `docker`, `kind`, `kubectl`, `helm`
 
 ### Setup
 
 ```bash
-# 1. Criar cluster kind
+# 1. Create kind cluster
 bun run k8s:cluster:create
 
-# 2. Configurar MetalLB + metrics-server
+# 2. Configure MetalLB + metrics-server
 bun run k8s:setup
 
-# 3. Build e load da imagem
+# 3. Build and load image
 bun run k8s:image:load
 
-# 4. Deploy da aplicação
+# 4. Deploy the application
 kubectl create namespace banking --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f k8s/postgres/ -f k8s/postgres-read/ -f k8s/redis/ -f k8s/kafka/ -f k8s/app/ -n banking
 
-# 5. Instalar observabilidade
+# 5. Install observability stack
 bun run monitoring:install
 bun run monitoring:collector
 bun run monitoring:dashboard
@@ -83,7 +83,7 @@ bun run monitoring:dashboard
 
 ### Secrets
 
-Copie os arquivos de exemplo antes do deploy:
+Copy the example files before deploying:
 
 ```bash
 cp k8s/postgres/secret.yaml.example k8s/postgres/secret.yaml
@@ -91,10 +91,10 @@ cp k8s/postgres-read/secret.yaml.example k8s/postgres-read/secret.yaml
 cp k8s/app/secret.yaml.example k8s/app/secret.yaml
 ```
 
-### Acesso
+### Access
 
 ```bash
-# IP externo da aplicação
+# Application external IP
 kubectl get svc banking-app -n banking
 
 # Grafana  → http://localhost:3000  (admin / banking123)
@@ -106,12 +106,12 @@ bun run monitoring:prometheus
 
 ---
 
-## Testes
+## Tests
 
 ```bash
 # Unit
 bun test tests/unit
 
-# Integration (requer serviços rodando)
+# Integration (requires services running)
 bun run test:integration
 ```
