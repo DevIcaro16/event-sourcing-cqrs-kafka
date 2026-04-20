@@ -17,7 +17,7 @@
     "k8s:status": "kubectl get all -n banking",
     "k8s:logs": "kubectl logs -f deployment/banking-app -n banking",
     "k8s:restart": "kubectl rollout restart deployment/banking-app -n banking && kubectl rollout status deployment/banking-app -n banking",
-    "monitoring:install": "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts && helm repo update && helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring --create-namespace --values k8s/monitoring/prometheus-values.yaml --wait --timeout 5m",
+    "monitoring:install": "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts && helm repo update && helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring --create-namespace --values k8s/monitoring/prometheus-values.yaml --wait --timeout 5m",
     "monitoring:collector": "kubectl apply -f k8s/monitoring/otel-collector/",
     "monitoring:dashboard": "kubectl apply -f k8s/monitoring/grafana-dashboard-banking.yaml",
     "monitoring:grafana": "kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80",
