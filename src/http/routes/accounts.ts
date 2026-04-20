@@ -12,6 +12,9 @@ import { handleReverseTransaction } from '../../application/commands/ReverseTran
 import { getBalance } from '../../application/queries/GetBalance'
 import { getStatement } from '../../application/queries/GetStatement'
 import { InsufficientFundsError, InvalidAmountError, InvalidReversalError } from '../../domain/account/AccountErrors'
+import { errorsTotal } from '../../infrastructure/telemetry/metrics'
+import type { CacheInvalidator } from '../../application/ports/CacheInvalidator'
+import type { CanonicalBalanceCache } from '../../application/ports/CanonicalBalanceCache'
 
 const tags = ['Accounts']
 
@@ -24,7 +27,12 @@ const AccountIdParams = t.Object({
   id: t.String({ pattern: UUID_PATTERN.source, description: 'UUID da conta' }),
 })
 
-export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
+export function accountRoutes(
+  deps: CommandDeps,
+  readStore: ReadModelStore,
+  cacheInvalidator: CacheInvalidator,
+  canonicalCache: CanonicalBalanceCache
+) {
   return new Elysia({ prefix: '/accounts' })
     .post(
       '/',
@@ -193,7 +201,12 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
     .get(
       '/:id/balance',
       async ({ params }) => {
-        return getBalance(params.id, readStore)
+        return getBalance(params.id, readStore, {
+          eventStore: deps.eventStore,
+          snapshotStore: deps.snapshotStore,
+          cacheInvalidator,
+          canonicalCache,
+        })
       },
       {
         params: AccountIdParams,
@@ -254,16 +267,29 @@ export function accountRoutes(deps: CommandDeps, readStore: ReadModelStore) {
       }
     )
     .onError(({ error, set }) => {
-      if (error instanceof InvalidAmountError || error instanceof InsufficientFundsError || error instanceof InvalidReversalError) {
+      if (error instanceof InvalidAmountError) {
+        errorsTotal.add(1, { error_type: 'invalid_amount' })
+        set.status = 422
+        return { error: error.name, message: error.message }
+      }
+      if (error instanceof InsufficientFundsError) {
+        errorsTotal.add(1, { error_type: 'insufficient_funds' })
+        set.status = 422
+        return { error: error.name, message: error.message }
+      }
+      if (error instanceof InvalidReversalError) {
+        errorsTotal.add(1, { error_type: 'invalid_reversal' })
         set.status = 422
         return { error: error.name, message: error.message }
       }
       if (error instanceof Error && error.name === 'AccountNotFoundError') {
+        errorsTotal.add(1, { error_type: 'account_not_found' })
         set.status = 404
         return { error: 'AccountNotFound', message: error.message }
       }
       // Elysia params validation failure (UUID pattern mismatch)
       if (error instanceof Error && error.name === 'ValidationError') {
+        errorsTotal.add(1, { error_type: 'validation_error' })
         set.status = 400
         return { error: 'InvalidAccountId', message: 'Account ID must be a valid UUID.' }
       }

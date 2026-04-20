@@ -1,6 +1,7 @@
 // src/application/commands/OpenAccount.ts
 import type { CommandDeps } from './_loadAccount'
 import { Account } from '../../domain/account/Account'
+import { accountsOpenedTotal } from '../../infrastructure/telemetry/metrics'
 
 export type OpenAccountCommand = {
   accountId: string
@@ -15,4 +16,5 @@ export async function handleOpenAccount(
   const account = Account.open(command.accountId, command.ownerId, command.initialBalance)
   await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
   await deps.publisher.publish(account.pendingEvents, command.accountId)
+  accountsOpenedTotal.add(1)
 }
