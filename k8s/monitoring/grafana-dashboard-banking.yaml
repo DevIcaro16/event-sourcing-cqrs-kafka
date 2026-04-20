@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-banking
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  banking-app.json: |
+    {
+      "title": "Banking App",
+      "uid": "banking-app-v1",
+      "schemaVersion": 37,
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request Rate (req/s)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(banking_http_server_request_duration_ms_milliseconds_count[1m])) by (http_route)",
+            "legendFormat": "{{http_route}}"
+          }]
+        },
+        {
+          "id": 2,
+          "title": "Latência p95 (ms)",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 },
+          "targets": [{
+            "expr": "histogram_quantile(0.95, sum(rate(banking_http_server_request_duration_ms_milliseconds_bucket[5m])) by (le, http_route))",
+            "legendFormat": "p95 {{http_route}}"
+          }]
+        },
+        {
+          "id": 3,
+          "title": "Error Rate (4xx/5xx req/s)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(banking_http_server_request_duration_ms_milliseconds_count{http_status_code=~\"[45]..\"}[1m])) by (http_route, http_status_code)",
+            "legendFormat": "{{http_route}} {{http_status_code}}"
+          }]
+        },
+        {
+          "id": 4,
+          "title": "Contas Abertas (total)",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 8, "w": 6, "h": 4 },
+          "targets": [{
+            "expr": "sum(banking_banking_accounts_opened_total)",
+            "legendFormat": "Total"
+          }]
+        },
+        {
+          "id": 5,
+          "title": "Transações/s por tipo",
+          "type": "timeseries",
+          "gridPos": { "x": 6, "y": 8, "w": 10, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(banking_banking_transactions_total[1m])) by (type)",
+            "legendFormat": "{{type}}"
+          }]
+        },
+        {
+          "id": 6,
+          "title": "Valor das Transações (p50/p95)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(banking_banking_transaction_amount_BRL_bucket[5m])) by (le, type))",
+              "legendFormat": "p50 {{type}}"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(banking_banking_transaction_amount_BRL_bucket[5m])) by (le, type))",
+              "legendFormat": "p95 {{type}}"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "Kafka — Mensagens Publicadas/s",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(banking_kafka_messages_published_total[1m])) by (topic)",
+            "legendFormat": "{{topic}}"
+          }]
+        },
+        {
+          "id": 8,
+          "title": "Kafka — Mensagens Consumidas/s",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 16, "w": 8, "h": 8 },
+          "targets": [{
+            "expr": "sum(rate(banking_kafka_messages_consumed_total[1m])) by (topic, group)",
+            "legendFormat": "{{topic}} / {{group}}"
+          }]
+        },
+        {
+          "id": 9,
+          "title": "Kafka — Consumer Lag",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 16, "w": 8, "h": 8 },
+          "targets": [{
+            "expr": "banking_kafka_consumer_lag",
+            "legendFormat": "{{topic}} p{{partition}} / {{group}}"
+          }]
+        }
+      ]
+    }
