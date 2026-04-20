@@ -194,19 +194,26 @@ describe('Account.reverseTransaction', () => {
     const account = Account.open('acc-1', 'owner-1', 500)
     account.withdraw(100)
     account.clearPendingEvents()
-    account.reverseTransaction('original-event-id', 100)
+    account.reverseTransaction('original-event-id', 100, 'MoneyWithdrawn')
     expect(account.pendingEvents[0].type).toBe('TransactionReversed')
   })
 
-  it('restores balance after reversal', () => {
+  it('credits balance when reversing a withdrawal', () => {
     const account = Account.open('acc-1', 'owner-1', 500)
     account.withdraw(100)
-    account.reverseTransaction('original-event-id', 100)
+    account.reverseTransaction('original-event-id', 100, 'MoneyWithdrawn')
+    expect(account.balance).toBe(500)
+  })
+
+  it('debits balance when reversing a deposit', () => {
+    const account = Account.open('acc-1', 'owner-1', 500)
+    account.deposit(200)
+    account.reverseTransaction('original-event-id', 200, 'MoneyDeposited')
     expect(account.balance).toBe(500)
   })
 
   it('rejects reversal of zero amount', () => {
     const account = Account.open('acc-1', 'owner-1', 500)
-    expect(() => account.reverseTransaction('id', 0)).toThrow(InvalidAmountError)
+    expect(() => account.reverseTransaction('id', 0, 'MoneyWithdrawn')).toThrow(InvalidAmountError)
   })
 })

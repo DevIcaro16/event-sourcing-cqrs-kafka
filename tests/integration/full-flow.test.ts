@@ -8,6 +8,7 @@ import { DrizzleReadModelStore } from '../../src/infrastructure/postgres/read/Dr
 import { RedisSnapshotStore } from '../../src/infrastructure/redis/RedisSnapshotStore'
 import { RedisReadModelCache } from '../../src/infrastructure/redis/RedisReadModelCache'
 import { RedisCacheInvalidator } from '../../src/infrastructure/redis/RedisCacheInvalidator'
+import { RedisCanonicalBalanceCache } from '../../src/infrastructure/redis/RedisCanonicalBalanceCache'
 import { AccountProjector } from '../../src/application/projectors/AccountProjector'
 import type { MessagePublisher } from '../../src/application/ports/MessagePublisher'
 import type { DomainEvent } from '../../src/domain/shared/DomainEvent'
@@ -33,6 +34,8 @@ const snapshotStore    = new RedisSnapshotStore(redis)
 const cacheInvalidator = new RedisCacheInvalidator(redis)
 const projector        = new AccountProjector(drizzleReadStore, cacheInvalidator)
 const readStore        = new RedisReadModelCache(drizzleReadStore, redis, 60)
+const canonicalCache   = new RedisCanonicalBalanceCache(redis)
+const integrityDeps    = { eventStore, snapshotStore, cacheInvalidator, canonicalCache }
 
 // Publisher síncrono para testes: chama o projector diretamente, sem Kafka
 class SyncMessagePublisher implements MessagePublisher {
@@ -63,7 +66,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     const accountId = crypto.randomUUID()
     await handleOpenAccount({ accountId, ownerId: 'owner-flow', initialBalance: 1000 }, deps)
 
-    const balance = await getBalance(accountId, readStore)
+    const balance = await getBalance(accountId, readStore, integrityDeps)
     expect(balance.balance).toBe(1000)
     expect(balance.availableBalance).toBe(1000)
     expect(balance.lockedBalance).toBe(0)
@@ -75,7 +78,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 500 }, deps)
     await handleDeposit({ accountId, amount: 300 }, deps)
 
-    const balance = await getBalance(accountId, readStore)
+    const balance = await getBalance(accountId, readStore, integrityDeps)
     expect(balance.balance).toBe(800)
     expect(balance.availableBalance).toBe(800)
   })
@@ -85,7 +88,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 1000 }, deps)
     await handleWithdraw({ accountId, amount: 400 }, deps)
 
-    const balance = await getBalance(accountId, readStore)
+    const balance = await getBalance(accountId, readStore, integrityDeps)
     expect(balance.balance).toBe(600)
   })
 
@@ -94,7 +97,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 1000 }, deps)
     await handleLockBalance({ accountId, amount: 300, reason: 'garantia' }, deps)
 
-    const balance = await getBalance(accountId, readStore)
+    const balance = await getBalance(accountId, readStore, integrityDeps)
     expect(balance.balance).toBe(1000)
     expect(balance.availableBalance).toBe(700)
     expect(balance.lockedBalance).toBe(300)
@@ -133,8 +136,8 @@ describe('Fluxo completo: comando → projeção → query', () => {
     await handleOpenAccount({ accountId: toId,   ownerId: 'to-owner',   initialBalance: 200  }, deps)
     await handleTransfer({ fromAccountId: fromId, toAccountId: toId, amount: 400 }, deps)
 
-    const fromBalance = await getBalance(fromId, readStore)
-    const toBalance   = await getBalance(toId,   readStore)
+    const fromBalance = await getBalance(fromId, readStore, integrityDeps)
+    const toBalance   = await getBalance(toId,   readStore, integrityDeps)
     expect(fromBalance.balance).toBe(600)
     expect(toBalance.balance).toBe(600)
   })
@@ -143,11 +146,11 @@ describe('Fluxo completo: comando → projeção → query', () => {
     const accountId = crypto.randomUUID()
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 750 }, deps)
 
-    const first  = await getBalance(accountId, readStore)
+    const first  = await getBalance(accountId, readStore, integrityDeps)
     const cached = await redis.get(`balance:${accountId}`)
     expect(cached).not.toBeNull()
 
-    const second = await getBalance(accountId, readStore)
+    const second = await getBalance(accountId, readStore, integrityDeps)
     expect(second.balance).toBe(first.balance)
   })
 })

@@ -3,9 +3,10 @@ import type postgres from 'postgres'
 import type { EventStore } from '../../application/ports/EventStore'
 import { ConcurrencyError } from '../../application/ports/EventStore'
 import type { DomainEvent } from '../../domain/shared/DomainEvent'
+import type { CanonicalBalance } from '../../application/ports/CanonicalBalanceCache'
 
 export class PostgresEventStore implements EventStore {
-  constructor(private readonly sql: postgres.Sql) {}
+  constructor(private readonly sql: postgres.Sql) { }
 
   async append(
     aggregateId: string,
@@ -76,5 +77,47 @@ export class PostgresEventStore implements EventStore {
     if (rows.length === 0) return null
     const row = rows[0]
     return typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload
+  }
+
+  async getLatestSequence(aggregateId: string): Promise<number> {
+    const rows = await this.sql<{ max: string | null }[]>`
+      SELECT MAX(sequence_number) AS max
+      FROM events
+      WHERE aggregate_id = ${aggregateId}::uuid
+    `
+    return rows[0].max != null ? Number(rows[0].max) : 0
+  }
+
+  async computeCanonicalBalance(aggregateId: string): Promise<CanonicalBalance | null> {
+    const rows = await this.sql<{ balance: string | null; locked_balance: string }[]>`
+      SELECT
+        (
+          SELECT COALESCE(payload->>'balanceAfter', payload->>'initialBalance')::numeric
+          FROM events
+          WHERE aggregate_id = ${aggregateId}::uuid
+            AND payload->>'type' IN (
+              'AccountOpened', 'MoneyDeposited', 'MoneyWithdrawn',
+              'TransferInitiated', 'TransferReceived', 'TransactionReversed'
+            )
+          ORDER BY sequence_number DESC
+          LIMIT 1
+        ) AS balance,
+        COALESCE((
+          SELECT SUM(
+            CASE payload->>'type'
+              WHEN 'BalanceLocked'   THEN  (payload->>'amount')::numeric
+              WHEN 'BalanceUnlocked' THEN -(payload->>'amount')::numeric
+            END
+          )
+          FROM events
+          WHERE aggregate_id = ${aggregateId}::uuid
+            AND payload->>'type' IN ('BalanceLocked', 'BalanceUnlocked')
+        ), 0) AS locked_balance
+    `
+    if (rows[0].balance == null) return null
+    return {
+      balance:       Number(rows[0].balance),
+      lockedBalance: Number(rows[0].locked_balance),
+    }
   }
 }
