@@ -18,8 +18,7 @@ beforeAll(async () => {
 })
 
 afterEach(async () => {
-  await sql`TRUNCATE TABLE events`
-  await sql`TRUNCATE TABLE outbox`
+  await sql`TRUNCATE TABLE events, outbox`
 })
 
 afterAll(async () => {
