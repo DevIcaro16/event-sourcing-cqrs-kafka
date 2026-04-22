@@ -1,4 +1,3 @@
-// src/application/commands/Withdraw.ts
 import type { CommandDeps } from './_loadAccount'
 import { loadAccount } from './_loadAccount'
 import { ConcurrencyError } from '../ports/EventStore'
@@ -20,7 +19,6 @@ export async function handleWithdraw(
     account.withdraw(command.amount)
     try {
       await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
-      await deps.publisher.publish(account.pendingEvents, command.accountId)
       transactionsTotal.add(1, { type: 'withdraw' })
       transactionAmount.record(command.amount, { type: 'withdraw' })
       return
