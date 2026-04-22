@@ -1,4 +1,3 @@
-// src/application/commands/Transfer.ts
 import type { CommandDeps } from './_loadAccount'
 import { loadAccount } from './_loadAccount'
 import { ConcurrencyError } from '../ports/EventStore'
@@ -26,8 +25,6 @@ export async function handleTransfer(
     try {
       await deps.eventStore.append(command.fromAccountId, 'Account', from.pendingEvents, from.baseVersion)
       await deps.eventStore.append(command.toAccountId, 'Account', to.pendingEvents, to.baseVersion)
-      await deps.publisher.publish(from.pendingEvents, command.fromAccountId)
-      await deps.publisher.publish(to.pendingEvents, command.toAccountId)
       transactionsTotal.add(1, { type: 'transfer' })
       transactionAmount.record(command.amount, { type: 'transfer' })
       return
