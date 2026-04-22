@@ -15,3 +15,15 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS idx_events_aggregate
   ON events (aggregate_id, sequence_number ASC);
+
+CREATE TABLE IF NOT EXISTS outbox (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  aggregate_id  UUID        NOT NULL,
+  events        JSONB       NOT NULL,
+  published_at  TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_pending
+  ON outbox (created_at ASC)
+  WHERE published_at IS NULL;
