@@ -132,7 +132,7 @@ describe('PostgresEventStore.append — outbox', () => {
     await store.append(aggregateId, 'Account', [event], 0)
 
     // segunda chamada com mesmo expectedVersion → ConcurrencyError
-    await expect(store.append(aggregateId, 'Account', [event], 0)).rejects.toThrow()
+    await expect(store.append(aggregateId, 'Account', [event], 0)).rejects.toThrow(ConcurrencyError)
 
     // outbox deve ter apenas a primeira entrada bem-sucedida
     const pending = await outboxStore.getPending()
