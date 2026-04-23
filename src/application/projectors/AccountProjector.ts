@@ -2,15 +2,21 @@ import type { DomainEvent } from '../../domain/shared/DomainEvent'
 import type { AccountEvent } from '../../domain/account/AccountEvents'
 import type { ReadModelStore } from '../ports/ReadModelStore'
 import type { CacheInvalidator } from '../ports/CacheInvalidator'
+import type { ProcessedEventsStore } from '../ports/ProcessedEventsStore'
 
 export class AccountProjector {
   constructor(
     private readonly readStore: ReadModelStore,
     private readonly cacheInvalidator: CacheInvalidator,
+    private readonly processedEvents?: ProcessedEventsStore,
   ) {}
 
   async project(events: DomainEvent[], aggregateId: string): Promise<void> {
     for (const event of events) {
+      if (event.eventId && this.processedEvents) {
+        const isFirst = await this.processedEvents.tryMarkProcessed(event.eventId)
+        if (!isFirst) continue
+      }
       await this.projectOne(event as AccountEvent)
     }
     await this.cacheInvalidator.invalidateAccount(aggregateId)

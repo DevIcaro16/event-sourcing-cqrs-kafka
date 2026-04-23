@@ -7,6 +7,7 @@ import { Kafka } from 'kafkajs'
 import { PostgresEventStore } from './src/infrastructure/postgres/PostgresEventStore'
 import { PostgresIdempotencyStore } from './src/infrastructure/postgres/PostgresIdempotencyStore'
 import { DrizzleReadModelStore } from './src/infrastructure/postgres/read/DrizzleReadModelStore'
+import { DrizzleProcessedEventsStore } from './src/infrastructure/postgres/read/DrizzleProcessedEventsStore'
 import { RedisSnapshotStore } from './src/infrastructure/redis/RedisSnapshotStore'
 import { RedisReadModelCache } from './src/infrastructure/redis/RedisReadModelCache'
 import { RedisCacheInvalidator } from './src/infrastructure/redis/RedisCacheInvalidator'
@@ -46,10 +47,11 @@ const eventStore = new PostgresEventStore(writeSql)
 const idempotencyStore = new PostgresIdempotencyStore(writeSql)
 const outboxStore = new PostgresOutboxStore(writeSql)
 const drizzleReadStore = new DrizzleReadModelStore(readSql)
+const processedEventsStore = new DrizzleProcessedEventsStore(readSql)
 const snapshotStore = new RedisSnapshotStore(redis)
 const cacheInvalidator = new RedisCacheInvalidator(redis)
 const canonicalCache = new RedisCanonicalBalanceCache(redis)
-const projector = new AccountProjector(drizzleReadStore, cacheInvalidator)
+const projector = new AccountProjector(drizzleReadStore, cacheInvalidator, processedEventsStore)
 const readStoreWithCache = new RedisReadModelCache(drizzleReadStore, redis, READ_MODEL_CACHE_TTL)
 
 const kafkaPublisher = KafkaMessagePublisher.create(kafka, 'banking.account.events')
