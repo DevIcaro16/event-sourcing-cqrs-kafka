@@ -10,7 +10,7 @@ export abstract class AggregateRoot {
   get pendingEvents(): DomainEvent[] { return [...this._pendingEvents] }
 
   protected applyEvent<T extends DomainEvent>(event: T): void {
-    const eventWithId: T = { ...event, eventId: crypto.randomUUID() }
+    const eventWithId = { ...event, eventId: crypto.randomUUID() } as T
     this.apply(eventWithId)
     this._pendingEvents.push(eventWithId)
     this._version++
