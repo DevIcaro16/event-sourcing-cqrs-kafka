@@ -21,3 +21,8 @@ export const accountTransactions = pgTable('account_transactions', {
 }, (t) => [
   index('idx_transactions_account_date_type').on(t.accountId, t.occurredAt, t.eventType),
 ])
+
+export const processedEvents = pgTable('processed_events', {
+  eventId:     text('event_id').primaryKey(),
+  projectedAt: timestamp('projected_at', { withTimezone: true }).notNull().defaultNow(),
+})
