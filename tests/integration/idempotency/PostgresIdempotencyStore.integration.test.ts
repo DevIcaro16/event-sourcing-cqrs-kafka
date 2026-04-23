@@ -55,4 +55,14 @@ describe('PostgresIdempotencyStore', () => {
     const result = await store.getResponse('nao-existe', 'POST /accounts')
     expect(result).toBeNull()
   })
+
+  it('getResponse retorna null para chave expirada', async () => {
+    // Insert a key that is already expired
+    await sql`
+      INSERT INTO idempotency_keys (key, route, response, expires_at)
+      VALUES ('key-expired', 'POST /accounts', '{"accountId":"x"}'::jsonb, NOW() - INTERVAL '1 second')
+    `
+    const result = await store.getResponse('key-expired', 'POST /accounts')
+    expect(result).toBeNull()
+  })
 })

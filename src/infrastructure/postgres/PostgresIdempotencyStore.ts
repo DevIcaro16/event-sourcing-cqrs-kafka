@@ -5,7 +5,9 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
   constructor(private readonly sql: postgres.Sql) {}
 
   async tryAcquire(key: string, route: string): Promise<boolean> {
-    await this.sql`DELETE FROM idempotency_keys WHERE expires_at < NOW()`
+    if (Math.random() < 0.01) {
+      await this.sql`DELETE FROM idempotency_keys WHERE expires_at < NOW()`
+    }
     const result = await this.sql`
       INSERT INTO idempotency_keys (key, route)
       VALUES (${key}, ${route})
@@ -27,10 +29,14 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
   }
 
   async saveResponse(key: string, route: string, response: Record<string, unknown>): Promise<void> {
-    await this.sql`
+    const result = await this.sql`
       UPDATE idempotency_keys
       SET response = ${JSON.stringify(response)}::jsonb
       WHERE key = ${key} AND route = ${route}
+      RETURNING key
     `
+    if (result.length === 0) {
+      console.warn('[idempotency] saveResponse: key not found or expired', { key, route })
+    }
   }
 }
