@@ -15,6 +15,8 @@ import { InsufficientFundsError, InvalidAmountError, InvalidReversalError } from
 import { errorsTotal } from '../../infrastructure/telemetry/metrics'
 import type { CacheInvalidator } from '../../application/ports/CacheInvalidator'
 import type { CanonicalBalanceCache } from '../../application/ports/CanonicalBalanceCache'
+import type { IdempotencyStore } from '../../application/ports/IdempotencyStore'
+import { withIdempotency } from '../middleware/idempotency'
 
 const tags = ['Accounts']
 
@@ -31,16 +33,25 @@ export function accountRoutes(
   deps: CommandDeps,
   readStore: ReadModelStore,
   cacheInvalidator: CacheInvalidator,
-  canonicalCache: CanonicalBalanceCache
+  canonicalCache: CanonicalBalanceCache,
+  idempotencyStore?: IdempotencyStore,
 ) {
   return new Elysia({ prefix: '/accounts' })
     .post(
       '/',
-      async ({ body, set }) => {
+      async ({ body, headers, set }) => {
         const accountId = crypto.randomUUID()
-        await handleOpenAccount({ accountId, ownerId: body.ownerId, initialBalance: body.initialBalance }, deps)
-        set.status = 202
-        return { accountId }
+        const result = await withIdempotency(
+          headers['idempotency-key'],
+          'POST /accounts',
+          idempotencyStore,
+          async () => {
+            await handleOpenAccount({ accountId, ownerId: body.ownerId, initialBalance: body.initialBalance }, deps)
+            return { accountId }
+          },
+        )
+        set.status = result.duplicate ? 200 : 202
+        return result
       },
       {
         body: t.Object({
@@ -60,10 +71,18 @@ export function accountRoutes(
     )
     .post(
       '/:id/deposit',
-      async ({ params, body, set }) => {
-        await handleDeposit({ accountId: params.id, amount: body.amount }, deps)
-        set.status = 202
-        return { accountId: params.id }
+      async ({ params, body, headers, set }) => {
+        const result = await withIdempotency(
+          headers['idempotency-key'],
+          'POST /accounts/:id/deposit',
+          idempotencyStore,
+          async () => {
+            await handleDeposit({ accountId: params.id, amount: body.amount }, deps)
+            return { accountId: params.id }
+          },
+        )
+        set.status = result.duplicate ? 200 : 202
+        return result
       },
       {
         params: AccountIdParams,
@@ -82,10 +101,18 @@ export function accountRoutes(
     )
     .post(
       '/:id/withdraw',
-      async ({ params, body, set }) => {
-        await handleWithdraw({ accountId: params.id, amount: body.amount }, deps)
-        set.status = 202
-        return { accountId: params.id }
+      async ({ params, body, headers, set }) => {
+        const result = await withIdempotency(
+          headers['idempotency-key'],
+          'POST /accounts/:id/withdraw',
+          idempotencyStore,
+          async () => {
+            await handleWithdraw({ accountId: params.id, amount: body.amount }, deps)
+            return { accountId: params.id }
+          },
+        )
+        set.status = result.duplicate ? 200 : 202
+        return result
       },
       {
         params: AccountIdParams,
@@ -104,10 +131,18 @@ export function accountRoutes(
     )
     .post(
       '/transfer',
-      async ({ body, set }) => {
-        await handleTransfer({ fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
-        set.status = 202
-        return { fromAccountId: body.fromAccountId, toAccountId: body.toAccountId }
+      async ({ body, headers, set }) => {
+        const result = await withIdempotency(
+          headers['idempotency-key'],
+          'POST /accounts/transfer',
+          idempotencyStore,
+          async () => {
+            await handleTransfer({ fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
+            return { fromAccountId: body.fromAccountId, toAccountId: body.toAccountId }
+          },
+        )
+        set.status = result.duplicate ? 200 : 202
+        return result
       },
       {
         body: t.Object({
@@ -129,10 +164,18 @@ export function accountRoutes(
     )
     .post(
       '/:id/lock',
-      async ({ params, body, set }) => {
-        await handleLockBalance({ accountId: params.id, amount: body.amount, reason: body.reason }, deps)
-        set.status = 202
-        return { accountId: params.id }
+      async ({ params, body, headers, set }) => {
+        const result = await withIdempotency(
+          headers['idempotency-key'],
+          'POST /accounts/:id/lock',
+          idempotencyStore,
+          async () => {
+            await handleLockBalance({ accountId: params.id, amount: body.amount, reason: body.reason }, deps)
+            return { accountId: params.id }
+          },
+        )
+        set.status = result.duplicate ? 200 : 202
+        return result
       },
       {
         params: AccountIdParams,
@@ -154,10 +197,18 @@ export function accountRoutes(
     )
     .post(
       '/:id/unlock',
-      async ({ params, body, set }) => {
-        await handleUnlockBalance({ accountId: params.id, amount: body.amount }, deps)
-        set.status = 202
-        return { accountId: params.id }
+      async ({ params, body, headers, set }) => {
+        const result = await withIdempotency(
+          headers['idempotency-key'],
+          'POST /accounts/:id/unlock',
+          idempotencyStore,
+          async () => {
+            await handleUnlockBalance({ accountId: params.id, amount: body.amount }, deps)
+            return { accountId: params.id }
+          },
+        )
+        set.status = result.duplicate ? 200 : 202
+        return result
       },
       {
         params: AccountIdParams,
@@ -176,10 +227,18 @@ export function accountRoutes(
     )
     .post(
       '/:id/reverse',
-      async ({ params, body, set }) => {
-        await handleReverseTransaction({ accountId: params.id, originalEventId: body.originalEventId }, deps)
-        set.status = 202
-        return { accountId: params.id }
+      async ({ params, body, headers, set }) => {
+        const result = await withIdempotency(
+          headers['idempotency-key'],
+          'POST /accounts/:id/reverse',
+          idempotencyStore,
+          async () => {
+            await handleReverseTransaction({ accountId: params.id, originalEventId: body.originalEventId }, deps)
+            return { accountId: params.id }
+          },
+        )
+        set.status = result.duplicate ? 200 : 202
+        return result
       },
       {
         params: AccountIdParams,

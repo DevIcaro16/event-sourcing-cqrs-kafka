@@ -5,6 +5,7 @@ import postgres from 'postgres'
 import Redis from 'ioredis'
 import { Kafka } from 'kafkajs'
 import { PostgresEventStore } from './src/infrastructure/postgres/PostgresEventStore'
+import { PostgresIdempotencyStore } from './src/infrastructure/postgres/PostgresIdempotencyStore'
 import { DrizzleReadModelStore } from './src/infrastructure/postgres/read/DrizzleReadModelStore'
 import { RedisSnapshotStore } from './src/infrastructure/redis/RedisSnapshotStore'
 import { RedisReadModelCache } from './src/infrastructure/redis/RedisReadModelCache'
@@ -13,7 +14,9 @@ import { RedisCanonicalBalanceCache } from './src/infrastructure/redis/RedisCano
 import { AccountProjector } from './src/application/projectors/AccountProjector'
 import { KafkaMessagePublisher } from './src/infrastructure/kafka/KafkaMessagePublisher'
 import { KafkaMessageSubscriber } from './src/infrastructure/kafka/KafkaMessageSubscriber'
+import { OutboxRelay } from './src/infrastructure/kafka/OutboxRelay'
 import { retryWithBackoff } from './src/infrastructure/kafka/retryWithBackoff'
+import { PostgresOutboxStore } from './src/infrastructure/postgres/PostgresOutboxStore'
 import { accountRoutes } from './src/http/routes/accounts'
 import { withHttpMetrics } from './src/http/middleware/httpMetrics'
 
@@ -22,6 +25,7 @@ const READ_DATABASE_URL = process.env.READ_DATABASE_URL ?? 'postgres://postgres:
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6381'
 const KAFKA_BROKERS = (process.env.KAFKA_BROKERS ?? 'localhost:9092').split(',')
 const READ_MODEL_CACHE_TTL = Number(process.env.READ_MODEL_CACHE_TTL ?? 60)
+const OUTBOX_POLL_INTERVAL_MS = Number(process.env.OUTBOX_POLL_INTERVAL_MS ?? 1000)
 const PORT = Number(process.env.PORT ?? 3000)
 
 const writeSql = postgres(DATABASE_URL)
@@ -39,6 +43,8 @@ const kafka = new Kafka({
 })
 
 const eventStore = new PostgresEventStore(writeSql)
+const idempotencyStore = new PostgresIdempotencyStore(writeSql)
+const outboxStore = new PostgresOutboxStore(writeSql)
 const drizzleReadStore = new DrizzleReadModelStore(readSql)
 const snapshotStore = new RedisSnapshotStore(redis)
 const cacheInvalidator = new RedisCacheInvalidator(redis)
@@ -65,11 +71,13 @@ await admin.disconnect()
 await kafkaPublisher.connect()
 await dlqPublisher.connect()
 
-const deps = { eventStore, snapshotStore, publisher: kafkaPublisher }
+const outboxRelay = new OutboxRelay(outboxStore, kafkaPublisher, OUTBOX_POLL_INTERVAL_MS)
+
+const deps = { eventStore, snapshotStore }
 
 withHttpMetrics(new Elysia())
   .get('/', ({ redirect }) => redirect('/swagger'))
-  .use(accountRoutes(deps, readStoreWithCache, cacheInvalidator, canonicalCache))
+  .use(accountRoutes(deps, readStoreWithCache, cacheInvalidator, canonicalCache, idempotencyStore))
   .use(swagger({
     documentation: {
       info: {
@@ -83,6 +91,7 @@ withHttpMetrics(new Elysia())
   .listen(PORT, () => {
     console.log(`Banking API running on port ${PORT}`)
     console.log(`Swagger UI: http://localhost:${PORT}/swagger`)
+    outboxRelay.start()
   })
 
 // Background Kafka consumer — roda no mesmo processo que o HTTP server
@@ -99,6 +108,7 @@ await kafkaSubscriber.subscribe(async (events, aggregateId) => {
 })
 
 const shutdown = async () => {
+  await outboxRelay.stop()
   await kafkaSubscriber.close()
   await kafkaPublisher.close()
   await dlqPublisher.close()
