@@ -18,13 +18,16 @@ export class PostgresOutboxStore {
       ORDER BY created_at ASC
       LIMIT ${limit}
     `
-    return rows.map(row => ({
-      id: row.id,
-      aggregateId: row.aggregate_id,
-      events: (typeof row.events === 'string'
+    return rows.map(row => {
+      const raw: { occurredAt: string }[] = typeof row.events === 'string'
         ? JSON.parse(row.events)
-        : row.events) as DomainEvent[],
-    }))
+        : row.events as { occurredAt: string }[]
+      return {
+        id: row.id,
+        aggregateId: row.aggregate_id,
+        events: raw.map(e => ({ ...e, occurredAt: new Date(e.occurredAt) })) as DomainEvent[],
+      }
+    })
   }
 
   async markPublished(id: string): Promise<void> {

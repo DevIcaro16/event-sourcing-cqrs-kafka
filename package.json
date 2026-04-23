@@ -8,6 +8,7 @@
     "test:integration": "TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test TEST_READ_DATABASE_URL=postgres://postgres:postgres@localhost:5435/banking_read_test TEST_REDIS_URL=redis://localhost:6380 TEST_KAFKA_BROKERS=localhost:9093 bun test tests/integration",
     "db:generate:read": "drizzle-kit generate",
     "db:migrate:read": "bun run src/infrastructure/postgres/read/migrate.ts",
+    "k8s:setup:full": "./scripts/setup.sh",
     "k8s:cluster:create": "kind create cluster --config kind-config.yaml --name banking",
     "k8s:cluster:delete": "kind delete cluster --name banking",
     "k8s:setup": "./scripts/setup-metallb.sh",
@@ -37,6 +38,7 @@
     "postgres": "^3.4.9"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "drizzle-kit": "^0.31.10"
   },
   "patchedDependencies": {
