@@ -6,13 +6,12 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "./dist",
-    "baseUrl": ".",
     "paths": {
-      "@domain/*": ["src/domain/*"],
-      "@application/*": ["src/application/*"],
-      "@infrastructure/*": ["src/infrastructure/*"],
-      "@http/*": ["src/http/*"]
+      "@domain/*": ["./src/domain/*"],
+      "@application/*": ["./src/application/*"],
+      "@infrastructure/*": ["./src/infrastructure/*"],
+      "@http/*": ["./src/http/*"]
     }
   },
-  "include": ["src", "tests", "server.ts"]
+  "include": ["src", "tests", "server.ts", "drizzle.config.ts"]
 }
