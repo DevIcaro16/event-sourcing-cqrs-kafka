@@ -21,3 +21,8 @@ CREATE TABLE IF NOT EXISTS account_transactions (
 
 CREATE INDEX IF NOT EXISTS idx_transactions_account_date_type
   ON account_transactions (account_id, occurred_at, event_type);
+
+CREATE TABLE IF NOT EXISTS processed_events (
+  event_id     TEXT        PRIMARY KEY,
+  projected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
