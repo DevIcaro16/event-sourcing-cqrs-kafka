@@ -6,6 +6,7 @@
     "start": "bun run server.ts",
     "migrate": "bun run scripts/migrate.ts",
     "test": "bun test",
+    "test:unit:coverage": "bun test tests/unit --coverage --coverage-reporter=lcov --coverage-dir=coverage",
     "test:integration": "TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test TEST_READ_DATABASE_URL=postgres://postgres:postgres@localhost:5435/banking_read_test TEST_REDIS_URL=redis://localhost:6380 TEST_KAFKA_BROKERS=localhost:9093 bun test tests/integration",
     "db:generate:read": "drizzle-kit generate",
     "db:migrate:read": "bun run src/infrastructure/postgres/read/migrate.ts",
