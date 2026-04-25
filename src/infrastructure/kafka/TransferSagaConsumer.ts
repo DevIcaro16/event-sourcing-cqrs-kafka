@@ -25,7 +25,7 @@ export class TransferSagaConsumer {
     const { sagaId, fromAccountId, toAccountId, amount } = event
 
     const existing = await this.sagaStore.findById(sagaId)
-    if (existing?.status === 'COMPLETED' || existing?.status === 'FAILED') return
+    if (existing && (existing.status === 'COMPLETED' || existing.status === 'FAILED' || existing.status === 'RETRY')) return
 
     if (!existing) {
       await this.sagaStore.create({ sagaId, fromAccountId, toAccountId, amount, status: 'PENDING', attempt: 0, nextRetryAt: null })
@@ -44,13 +44,14 @@ export class TransferSagaConsumer {
           await this.compensate(sagaId, fromAccountId, toAccountId, amount)
           return
         }
-        await this.sagaStore.update(sagaId, { status: 'RETRY', attempt: 1, nextRetryAt: new Date(Date.now() + 2000) })
+        const currentAttempt = existing?.attempt ?? 0
+        await this.sagaStore.update(sagaId, { status: 'RETRY', attempt: currentAttempt + 1, nextRetryAt: new Date(Date.now() + 2000) })
         return
       }
     }
   }
 
-  async compensate(sagaId: string, fromAccountId: string, toAccountId: string, amount: number): Promise<void> {
+  private async compensate(sagaId: string, fromAccountId: string, toAccountId: string, amount: number): Promise<void> {
     for (let i = 0; i < MAX_CONCURRENCY_RETRIES; i++) {
       try {
         const from = await loadAccount(fromAccountId, this.eventStore, this.snapshotStore)
@@ -63,5 +64,6 @@ export class TransferSagaConsumer {
         throw err
       }
     }
+    console.error(`TransferSagaConsumer: compensation exhausted retries for saga ${sagaId}`)
   }
 }
