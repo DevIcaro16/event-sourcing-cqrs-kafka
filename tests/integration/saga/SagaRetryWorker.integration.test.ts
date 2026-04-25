@@ -66,7 +66,11 @@ describe('SagaRetryWorker', () => {
     await handleTransfer({ sagaId, fromAccountId: fromId, toAccountId: toId, amount: 300 }, deps)
     await sagaStore.create({ sagaId, fromAccountId: fromId, toAccountId: toId, amount: 300, status: 'RETRY', attempt: 1, nextRetryAt: new Date(Date.now() - 1000) })
 
-    const failingEventStore = { ...eventStore, append: async () => { throw new Error('infra error') } } as any
+    const failingEventStore = Object.assign(
+      Object.create(Object.getPrototypeOf(eventStore)),
+      eventStore,
+      { append: async () => { throw new Error('infra error') } },
+    ) as typeof eventStore
     const worker = new SagaRetryWorker(sagaStore, failingEventStore, snapshotStore, 0)
     await worker.processOnce()
 
@@ -91,9 +95,9 @@ describe('SagaRetryWorker', () => {
     const failingEventStore = Object.assign(
       Object.create(Object.getPrototypeOf(eventStore)),
       eventStore,
-      { append: async (aggId: string, ...args: any[]) => {
+      { append: async (aggId: string, aggregateType: string, events: any[], expectedVersion: number) => {
         if (aggId === toId) throw new Error('infra error')
-        return eventStore.append(aggId, ...args)
+        return eventStore.append(aggId, aggregateType, events, expectedVersion)
       } },
     ) as any
 

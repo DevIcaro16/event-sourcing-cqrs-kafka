@@ -35,7 +35,11 @@ export class SagaRetryWorker {
   private schedule(): void {
     if (!this.running) return
     this.timer = setTimeout(async () => {
-      await this.processOnce()
+      try {
+        await this.processOnce()
+      } catch (err) {
+        console.error('SagaRetryWorker: processOnce failed, will retry on next tick', err)
+      }
       this.schedule()
     }, this.intervalMs)
   }
@@ -88,6 +92,11 @@ export class SagaRetryWorker {
       } catch (err) {
         if (err instanceof ConcurrencyError && i < MAX_CONCURRENCY_RETRIES - 1) continue
         console.error(`SagaRetryWorker: compensação falhou para saga ${saga.sagaId}`, err)
+        try {
+          await this.sagaStore.update(saga.sagaId, { status: 'FAILED', attempt: saga.attempt, nextRetryAt: null })
+        } catch (updateErr) {
+          console.error(`SagaRetryWorker: could not mark saga FAILED`, updateErr)
+        }
         return
       }
     }
