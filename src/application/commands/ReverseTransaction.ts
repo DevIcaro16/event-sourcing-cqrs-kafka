@@ -1,4 +1,3 @@
-// src/application/commands/ReverseTransaction.ts
 import type { CommandDeps } from './_loadAccount'
 import { loadAccount } from './_loadAccount'
 import { ConcurrencyError } from '../ports/EventStore'
@@ -33,7 +32,6 @@ export async function handleReverseTransaction(
     account.reverseTransaction(command.originalEventId, amount, originalEvent.type)
     try {
       await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
-      await deps.publisher.publish(account.pendingEvents, command.accountId)
       transactionsTotal.add(1, { type: 'reverse' })
       return
     } catch (err) {

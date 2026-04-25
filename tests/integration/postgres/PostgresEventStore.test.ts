@@ -1,22 +1,24 @@
 // tests/integration/postgres/PostgresEventStore.test.ts
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'bun:test'
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'bun:test'
 import postgres from 'postgres'
 import { PostgresEventStore } from '../../../src/infrastructure/postgres/PostgresEventStore'
 import { ConcurrencyError } from '../../../src/application/ports/EventStore'
+import { PostgresOutboxStore } from '../../../src/infrastructure/postgres/PostgresOutboxStore'
 import { readFileSync } from 'fs'
 import type { DomainEvent } from '../../../src/domain/shared/DomainEvent'
 
 const TEST_DB_URL = process.env.TEST_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/banking_test'
 const sql = postgres(TEST_DB_URL)
 const store = new PostgresEventStore(sql)
+const outboxStore = new PostgresOutboxStore(sql)
 
 beforeAll(async () => {
   const schema = readFileSync('./src/infrastructure/postgres/schema.sql', 'utf-8')
   await sql.unsafe(schema)
 })
 
-afterEach(async () => {
-  await sql`TRUNCATE TABLE events`
+beforeEach(async () => {
+  await sql`TRUNCATE TABLE events, outbox`
 })
 
 afterAll(async () => {
@@ -102,5 +104,37 @@ describe('PostgresEventStore.loadFrom', () => {
     ], 0)
     const result = await store.loadFrom(aggregateId, 99)
     expect(result).toHaveLength(0)
+  })
+})
+
+describe('PostgresEventStore.append — outbox', () => {
+  it('cria uma entrada pendente na outbox dentro da mesma transação', async () => {
+    const aggregateId = crypto.randomUUID()
+    const events: DomainEvent[] = [
+      { type: 'AccountOpened', accountId: aggregateId, ownerId: 'owner-1', initialBalance: 500, occurredAt: new Date() } as DomainEvent,
+    ]
+
+    await store.append(aggregateId, 'Account', events, 0)
+
+    const pending = await outboxStore.getPending()
+    expect(pending).toHaveLength(1)
+    expect(pending[0].aggregateId).toBe(aggregateId)
+    expect(pending[0].events).toHaveLength(1)
+    expect(pending[0].events[0].type).toBe('AccountOpened')
+    expect(pending[0].id).toBeTruthy()
+  })
+
+  it('não cria entrada na outbox se append falha por concorrência', async () => {
+    const aggregateId = crypto.randomUUID()
+    const event: DomainEvent = { type: 'AccountOpened', accountId: aggregateId, ownerId: 'o', initialBalance: 0, occurredAt: new Date() } as DomainEvent
+
+    await store.append(aggregateId, 'Account', [event], 0)
+
+    // segunda chamada com mesmo expectedVersion → ConcurrencyError
+    await expect(store.append(aggregateId, 'Account', [event], 0)).rejects.toThrow(ConcurrencyError)
+
+    // outbox deve ter apenas a primeira entrada bem-sucedida
+    const pending = await outboxStore.getPending()
+    expect(pending).toHaveLength(1)
   })
 })

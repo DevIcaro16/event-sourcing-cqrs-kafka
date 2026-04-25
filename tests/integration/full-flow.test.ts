@@ -4,13 +4,15 @@ import postgres from 'postgres'
 import Redis from 'ioredis'
 import { readFileSync } from 'fs'
 import { PostgresEventStore } from '../../src/infrastructure/postgres/PostgresEventStore'
+import { PostgresOutboxStore } from '../../src/infrastructure/postgres/PostgresOutboxStore'
 import { DrizzleReadModelStore } from '../../src/infrastructure/postgres/read/DrizzleReadModelStore'
+import { DrizzleProcessedEventsStore } from '../../src/infrastructure/postgres/read/DrizzleProcessedEventsStore'
 import { RedisSnapshotStore } from '../../src/infrastructure/redis/RedisSnapshotStore'
 import { RedisReadModelCache } from '../../src/infrastructure/redis/RedisReadModelCache'
 import { RedisCacheInvalidator } from '../../src/infrastructure/redis/RedisCacheInvalidator'
 import { RedisCanonicalBalanceCache } from '../../src/infrastructure/redis/RedisCanonicalBalanceCache'
 import { AccountProjector } from '../../src/application/projectors/AccountProjector'
-import type { MessagePublisher } from '../../src/application/ports/MessagePublisher'
+import { OutboxRelay } from '../../src/infrastructure/kafka/OutboxRelay'
 import type { DomainEvent } from '../../src/domain/shared/DomainEvent'
 import { handleOpenAccount } from '../../src/application/commands/OpenAccount'
 import { handleDeposit } from '../../src/application/commands/Deposit'
@@ -29,24 +31,24 @@ const readSql  = postgres(READ_DB_URL)
 const redis    = new Redis(REDIS_URL)
 
 const eventStore       = new PostgresEventStore(writeSql)
-const drizzleReadStore = new DrizzleReadModelStore(readSql)
+const outboxStore      = new PostgresOutboxStore(writeSql)
+const drizzleReadStore    = new DrizzleReadModelStore(readSql)
+const processedEventsStore = new DrizzleProcessedEventsStore(readSql)
 const snapshotStore    = new RedisSnapshotStore(redis)
 const cacheInvalidator = new RedisCacheInvalidator(redis)
-const projector        = new AccountProjector(drizzleReadStore, cacheInvalidator)
+const projector        = new AccountProjector(drizzleReadStore, cacheInvalidator, processedEventsStore)
 const readStore        = new RedisReadModelCache(drizzleReadStore, redis, 60)
 const canonicalCache   = new RedisCanonicalBalanceCache(redis)
 const integrityDeps    = { eventStore, snapshotStore, cacheInvalidator, canonicalCache }
 
-// Publisher síncrono para testes: chama o projector diretamente, sem Kafka
-class SyncMessagePublisher implements MessagePublisher {
-  constructor(private readonly proj: AccountProjector) {}
+const relayPublisher = {
   async publish(events: DomainEvent[], aggregateId: string): Promise<void> {
-    await this.proj.project(events, aggregateId)
-  }
+    await projector.project(events, aggregateId)
+  },
 }
 
-const publisher = new SyncMessagePublisher(projector)
-const deps = { eventStore, snapshotStore, publisher }
+const outboxRelay = new OutboxRelay(outboxStore, relayPublisher, 0)
+const deps = { eventStore, snapshotStore }
 
 beforeAll(async () => {
   const writeSchema = readFileSync('./src/infrastructure/postgres/schema.sql', 'utf-8')
@@ -65,6 +67,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
   it('abre conta e retorna saldo correto via query', async () => {
     const accountId = crypto.randomUUID()
     await handleOpenAccount({ accountId, ownerId: 'owner-flow', initialBalance: 1000 }, deps)
+    await outboxRelay.processOnce()
 
     const balance = await getBalance(accountId, readStore, integrityDeps)
     expect(balance.balance).toBe(1000)
@@ -77,6 +80,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     const accountId = crypto.randomUUID()
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 500 }, deps)
     await handleDeposit({ accountId, amount: 300 }, deps)
+    await outboxRelay.processOnce()
 
     const balance = await getBalance(accountId, readStore, integrityDeps)
     expect(balance.balance).toBe(800)
@@ -87,6 +91,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     const accountId = crypto.randomUUID()
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 1000 }, deps)
     await handleWithdraw({ accountId, amount: 400 }, deps)
+    await outboxRelay.processOnce()
 
     const balance = await getBalance(accountId, readStore, integrityDeps)
     expect(balance.balance).toBe(600)
@@ -96,6 +101,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     const accountId = crypto.randomUUID()
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 1000 }, deps)
     await handleLockBalance({ accountId, amount: 300, reason: 'garantia' }, deps)
+    await outboxRelay.processOnce()
 
     const balance = await getBalance(accountId, readStore, integrityDeps)
     expect(balance.balance).toBe(1000)
@@ -108,6 +114,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 500 }, deps)
     await handleDeposit({ accountId, amount: 200 }, deps)
     await handleWithdraw({ accountId, amount: 100 }, deps)
+    await outboxRelay.processOnce()
 
     const statement = await getStatement(accountId, {}, readStore)
     expect(statement.length).toBeGreaterThanOrEqual(3)
@@ -122,6 +129,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 500 }, deps)
     await handleDeposit({ accountId, amount: 100 }, deps)
     await handleWithdraw({ accountId, amount: 50 }, deps)
+    await outboxRelay.processOnce()
 
     const deposits = await getStatement(accountId, { type: 'MoneyDeposited' }, readStore)
     expect(deposits).toHaveLength(1)
@@ -135,6 +143,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
     await handleOpenAccount({ accountId: fromId, ownerId: 'from-owner', initialBalance: 1000 }, deps)
     await handleOpenAccount({ accountId: toId,   ownerId: 'to-owner',   initialBalance: 200  }, deps)
     await handleTransfer({ fromAccountId: fromId, toAccountId: toId, amount: 400 }, deps)
+    await outboxRelay.processOnce()
 
     const fromBalance = await getBalance(fromId, readStore, integrityDeps)
     const toBalance   = await getBalance(toId,   readStore, integrityDeps)
@@ -145,6 +154,7 @@ describe('Fluxo completo: comando → projeção → query', () => {
   it('segundo acesso ao saldo vem do cache Redis', async () => {
     const accountId = crypto.randomUUID()
     await handleOpenAccount({ accountId, ownerId: 'o', initialBalance: 750 }, deps)
+    await outboxRelay.processOnce()
 
     const first  = await getBalance(accountId, readStore, integrityDeps)
     const cached = await redis.get(`balance:${accountId}`)

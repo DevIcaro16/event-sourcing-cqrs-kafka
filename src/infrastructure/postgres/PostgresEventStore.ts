@@ -33,6 +33,10 @@ export class PostgresEventStore implements EventStore {
             )
           `
         }
+        await tx`
+          INSERT INTO outbox (aggregate_id, events)
+          VALUES (${aggregateId}::uuid, ${JSON.stringify(events)}::jsonb)
+        `
       })
     } catch (err: any) {
       if (err.code === '23505') {

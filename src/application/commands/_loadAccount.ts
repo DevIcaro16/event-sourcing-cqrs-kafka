@@ -1,16 +1,13 @@
-// src/application/commands/_loadAccount.ts
 import { Account } from '../../domain/account/Account'
 import { AccountNotFoundError } from '../../domain/account/AccountErrors'
 import type { EventStore } from '../ports/EventStore'
 import type { SnapshotStore } from '../ports/SnapshotStore'
-import type { MessagePublisher } from '../ports/MessagePublisher'
 
 const SNAPSHOT_THRESHOLD = Number(process.env.SNAPSHOT_THRESHOLD ?? 50)
 
 export type CommandDeps = {
   eventStore: EventStore
   snapshotStore: SnapshotStore
-  publisher: MessagePublisher
 }
 
 export async function loadAccount(
