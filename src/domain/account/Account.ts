@@ -73,7 +73,7 @@ export class Account extends AggregateRoot {
     })
   }
 
-  initiateTransfer(toAccountId: string, amount: number, sagaId = ''): void {
+  initiateTransfer(toAccountId: string, amount: number, sagaId: string): void {
     if (amount <= 0) throw new InvalidAmountError(amount)
     if (amount > this.availableBalance) throw new InsufficientFundsError(this.availableBalance, amount)
     this.applyEvent({

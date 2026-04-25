@@ -149,6 +149,10 @@ describe('Fluxo completo: comando → projeção → query', () => {
     const sagaId = crypto.randomUUID()
     await handleTransfer({ sagaId, fromAccountId: fromId, toAccountId: toId, amount: 400 }, deps)
 
+    const fromEvents = await deps.eventStore.load(fromId)
+    const transferEvent = fromEvents.find(e => e.type === 'TransferInitiated') as import('../../src/domain/account/AccountEvents').TransferInitiated
+    expect(transferEvent.sagaId).toBe(sagaId)
+
     // Simula passo do saga consumer: credita conta destino
     const to = await loadAccount(toId, deps.eventStore, deps.snapshotStore)
     to.receiveTransfer(fromId, 400)
