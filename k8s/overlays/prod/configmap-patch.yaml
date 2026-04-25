@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: banking-app-config
+data:
+  OTEL_SERVICE_NAME: "banking-api-prod"
+  READ_MODEL_CACHE_TTL: "300"

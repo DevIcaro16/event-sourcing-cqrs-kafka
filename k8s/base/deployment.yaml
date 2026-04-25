@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: banking-app
+  template:
+    metadata:
+      labels:
+        app: banking-app
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      initContainers:
+        - name: wait-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres.banking.svc.cluster.local 5432; do
+                echo "Aguardando postgres..."; sleep 2
+              done
+              echo "Postgres pronto."
+        - name: migrate
+          image: banking-event-sourcing:app
+          imagePullPolicy: IfNotPresent
+          command: ["bun", "run", "migrate"]
+          envFrom:
+            - secretRef:
+                name: banking-app-secrets
+        - name: wait-kafka
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z kafka.banking.svc.cluster.local 9092; do
+                echo "Aguardando kafka..."; sleep 2
+              done
+              echo "Kafka pronto."
+      containers:
+        - name: banking-app
+          image: banking-event-sourcing:app
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: banking-app-config
+            - secretRef:
+                name: banking-app-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
