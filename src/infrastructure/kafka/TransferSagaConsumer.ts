@@ -61,7 +61,13 @@ export class TransferSagaConsumer {
         return
       } catch (err) {
         if (err instanceof ConcurrencyError && i < MAX_CONCURRENCY_RETRIES - 1) continue
-        throw err
+        console.error(`TransferSagaConsumer: compensação falhou para saga ${sagaId}`, err)
+        try {
+          await this.sagaStore.update(sagaId, { status: 'FAILED', attempt: 0, nextRetryAt: null })
+        } catch (updateErr) {
+          console.error(`TransferSagaConsumer: could not mark saga FAILED`, updateErr)
+        }
+        return
       }
     }
     console.error(`TransferSagaConsumer: compensation exhausted retries for saga ${sagaId}`)
