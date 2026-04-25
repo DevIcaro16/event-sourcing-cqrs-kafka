@@ -1,6 +1,7 @@
 // src/http/routes/accounts.ts
 import { Elysia, t } from 'elysia'
 import type { CommandDeps } from '../../application/commands/_loadAccount'
+import { loadAccount } from '../../application/commands/_loadAccount'
 import type { ReadModelStore } from '../../application/ports/ReadModelStore'
 import { handleOpenAccount } from '../../application/commands/OpenAccount'
 import { handleDeposit } from '../../application/commands/Deposit'
@@ -11,11 +12,12 @@ import { handleUnlockBalance } from '../../application/commands/UnlockBalance'
 import { handleReverseTransaction } from '../../application/commands/ReverseTransaction'
 import { getBalance } from '../../application/queries/GetBalance'
 import { getStatement } from '../../application/queries/GetStatement'
-import { InsufficientFundsError, InvalidAmountError, InvalidReversalError } from '../../domain/account/AccountErrors'
+import { AccountNotFoundError, InsufficientFundsError, InvalidAmountError, InvalidReversalError } from '../../domain/account/AccountErrors'
 import { errorsTotal } from '../../infrastructure/telemetry/metrics'
 import type { CacheInvalidator } from '../../application/ports/CacheInvalidator'
 import type { CanonicalBalanceCache } from '../../application/ports/CanonicalBalanceCache'
 import type { IdempotencyStore } from '../../application/ports/IdempotencyStore'
+import type { SagaStore } from '../../application/ports/SagaStore'
 import { withIdempotency } from '../middleware/idempotency'
 
 const tags = ['Accounts']
@@ -35,6 +37,7 @@ export function accountRoutes(
   cacheInvalidator: CacheInvalidator,
   canonicalCache: CanonicalBalanceCache,
   idempotencyStore?: IdempotencyStore,
+  sagaStore?: SagaStore,
 ) {
   return new Elysia({ prefix: '/accounts' })
     .post(
@@ -132,13 +135,25 @@ export function accountRoutes(
     .post(
       '/transfer',
       async ({ body, headers, set }) => {
+        // Valida existência da conta destino antes de debitar
+        try {
+          await loadAccount(body.toAccountId, deps.eventStore, deps.snapshotStore)
+        } catch (err) {
+          if (err instanceof AccountNotFoundError) {
+            set.status = 404
+            return { error: 'AccountNotFoundError', message: `Destination account not found: ${body.toAccountId}` }
+          }
+          throw err
+        }
+
+        const sagaId = crypto.randomUUID()
         const result = await withIdempotency(
           headers['idempotency-key'],
           'POST /accounts/transfer',
           idempotencyStore,
           async () => {
-            await handleTransfer({ sagaId: crypto.randomUUID(), fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
-            return { fromAccountId: body.fromAccountId, toAccountId: body.toAccountId }
+            await handleTransfer({ sagaId, fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
+            return { sagaId, status: 'PENDING' as const }
           },
         )
         set.status = result.duplicate ? 200 : 202
@@ -147,18 +162,19 @@ export function accountRoutes(
       {
         body: t.Object({
           fromAccountId: t.String({ minLength: 1, description: 'Conta de origem' }),
-          toAccountId: t.String({ minLength: 1, description: 'Conta de destino' }),
-          amount: t.Number({ exclusiveMinimum: 0, description: 'Valor a transferir (> 0)' }),
+          toAccountId:   t.String({ minLength: 1, description: 'Conta de destino' }),
+          amount:        t.Number({ exclusiveMinimum: 0, description: 'Valor a transferir (> 0)' }),
         }),
         response: {
-          202: t.Object({ fromAccountId: t.String(), toAccountId: t.String() }),
-          422: ErrorResponse,
+          202: t.Object({ sagaId: t.String(), status: t.String() }),
+          200: t.Object({ sagaId: t.String(), status: t.String(), duplicate: t.Optional(t.Boolean()) }),
           404: ErrorResponse,
+          422: ErrorResponse,
         },
         detail: {
           tags,
           summary: 'Transferir',
-          description: 'Transfere fundos entre duas contas. Ambas devem existir.',
+          description: 'Inicia transferência entre contas via saga. Retorna sagaId para acompanhamento. Consulte GET /sagas/:sagaId para status.',
         },
       }
     )
