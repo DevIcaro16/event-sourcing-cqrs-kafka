@@ -40,3 +40,19 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 CREATE INDEX IF NOT EXISTS idx_idempotency_expires
   ON idempotency_keys (expires_at)
   WHERE response IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS transfer_sagas (
+  saga_id         UUID        PRIMARY KEY,
+  from_account_id UUID        NOT NULL,
+  to_account_id   UUID        NOT NULL,
+  amount          NUMERIC     NOT NULL,
+  status          TEXT        NOT NULL DEFAULT 'PENDING',
+  attempt         INT         NOT NULL DEFAULT 0,
+  next_retry_at   TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sagas_retry
+  ON transfer_sagas (next_retry_at)
+  WHERE status = 'RETRY';
