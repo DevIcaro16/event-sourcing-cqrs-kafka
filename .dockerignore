@@ -5,6 +5,5 @@ docs/
 *.md
 .git/
 kind-config.yaml
-scripts/
 coverage/
 docker-compose*.yml
