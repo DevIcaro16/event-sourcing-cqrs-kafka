@@ -68,9 +68,10 @@ describe('POST /accounts/transfer + GET /sagas/:sagaId', () => {
     expect(body.sagaId).toBeTruthy()
     expect(body.status).toBe('PENDING')
 
-    // NOTE: the saga record is only created by TransferSagaConsumer (not by handleTransfer).
-    // So GET /sagas/:sagaId will return 404 at this point unless the saga consumer already ran.
-    // We verify the sagaId is in the HTTP response. The saga status endpoint is tested separately.
+    const sagaRes = await app.handle(new Request(`http://localhost/sagas/${body.sagaId}`))
+    expect(sagaRes.status).toBe(200)
+    const sagaBody = await sagaRes.json() as { status: string }
+    expect(sagaBody.status).toBe('PENDING')
   })
 
   it('retorna 404 se conta destino não existe', async () => {

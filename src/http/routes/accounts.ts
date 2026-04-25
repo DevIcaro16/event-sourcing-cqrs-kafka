@@ -146,12 +146,23 @@ export function accountRoutes(
           throw err
         }
 
-        const sagaId = crypto.randomUUID()
         const result = await withIdempotency(
           headers['idempotency-key'],
           'POST /accounts/transfer',
           idempotencyStore,
           async () => {
+            const sagaId = crypto.randomUUID()
+            if (sagaStore) {
+              await sagaStore.create({
+                sagaId,
+                fromAccountId: body.fromAccountId,
+                toAccountId:   body.toAccountId,
+                amount:        body.amount,
+                status:        'PENDING',
+                attempt:       0,
+                nextRetryAt:   null,
+              })
+            }
             await handleTransfer({ sagaId, fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
             return { sagaId, status: 'PENDING' as const }
           },

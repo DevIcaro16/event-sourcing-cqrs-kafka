@@ -23,6 +23,21 @@ export function sagaRoutes(sagaStore: SagaStore) {
         }
       },
       {
+        response: {
+          200: t.Object({
+            sagaId:        t.String(),
+            fromAccountId: t.String(),
+            toAccountId:   t.String(),
+            amount:        t.Number(),
+            status:        t.String(),
+            attempt:       t.Number(),
+            createdAt:     t.Date(),
+          }),
+          404: t.Object({
+            error:   t.String(),
+            message: t.String(),
+          }),
+        },
         detail: {
           tags: ['Sagas'],
           summary: 'Status da saga',
