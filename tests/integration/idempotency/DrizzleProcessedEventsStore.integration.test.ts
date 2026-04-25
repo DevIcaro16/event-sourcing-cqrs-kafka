@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'bun:test'
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'bun:test'
 import postgres from 'postgres'
 import { readFileSync } from 'fs'
 import { DrizzleProcessedEventsStore } from '../../../src/infrastructure/postgres/read/DrizzleProcessedEventsStore'
@@ -12,7 +12,7 @@ beforeAll(async () => {
   await sql.unsafe(schema)
 })
 
-afterEach(async () => {
+beforeEach(async () => {
   await sql`TRUNCATE TABLE processed_events`
 })
 

@@ -3,7 +3,7 @@ import Redis from 'ioredis'
 import { RedisSnapshotStore } from '../../../src/infrastructure/redis/RedisSnapshotStore'
 import type { AccountSnapshot } from '../../../src/application/ports/SnapshotStore'
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6381'
+const REDIS_URL = process.env.TEST_REDIS_URL ?? 'redis://localhost:6380'
 const redis = new Redis(REDIS_URL)
 const store = new RedisSnapshotStore(redis)
 
