@@ -107,24 +107,24 @@ describe('Account.initiateTransfer', () => {
   it('emits TransferInitiated event', () => {
     const account = Account.open('acc-1', 'owner-1', 500)
     account.clearPendingEvents()
-    account.initiateTransfer('acc-2', 200)
+    account.initiateTransfer('acc-2', 200, 'saga-test')
     expect(account.pendingEvents[0].type).toBe('TransferInitiated')
   })
 
   it('decreases balance on origin', () => {
     const account = Account.open('acc-1', 'owner-1', 500)
-    account.initiateTransfer('acc-2', 200)
+    account.initiateTransfer('acc-2', 200, 'saga-test')
     expect(account.balance).toBe(300)
   })
 
   it('rejects transfer exceeding available balance', () => {
     const account = Account.open('acc-1', 'owner-1', 100)
-    expect(() => account.initiateTransfer('acc-2', 101)).toThrow(InsufficientFundsError)
+    expect(() => account.initiateTransfer('acc-2', 101, 'saga-test')).toThrow(InsufficientFundsError)
   })
 
   it('rejects zero amount', () => {
     const account = Account.open('acc-1', 'owner-1', 100)
-    expect(() => account.initiateTransfer('acc-2', 0)).toThrow(InvalidAmountError)
+    expect(() => account.initiateTransfer('acc-2', 0, 'saga-test')).toThrow(InvalidAmountError)
   })
 })
 
@@ -215,5 +215,22 @@ describe('Account.reverseTransaction', () => {
   it('rejects reversal of zero amount', () => {
     const account = Account.open('acc-1', 'owner-1', 500)
     expect(() => account.reverseTransaction('id', 0, 'MoneyWithdrawn')).toThrow(InvalidAmountError)
+  })
+})
+
+describe('Account.compensateTransfer', () => {
+  it('credita saldo de volta e emite TransferCompensated', () => {
+    const account = Account.open('acc-1', 'owner-1', 1000)
+    account.initiateTransfer('acc-2', 300, 'saga-1')
+    account.clearPendingEvents()
+    account.compensateTransfer('acc-2', 300, 'saga-1')
+    expect(account.balance).toBe(1000)
+    const events = account.pendingEvents
+    expect(events).toHaveLength(1)
+    expect(events[0].type).toBe('TransferCompensated')
+    const e = events[0] as import('../../../src/domain/account/AccountEvents').TransferCompensated
+    expect(e.sagaId).toBe('saga-1')
+    expect(e.amount).toBe(300)
+    expect(e.balanceAfter).toBe(1000)
   })
 })

@@ -24,6 +24,7 @@ export type MoneyWithdrawn = DomainEvent & {
 
 export type TransferInitiated = DomainEvent & {
   type: 'TransferInitiated'
+  sagaId: string
   fromAccountId: string
   toAccountId: string
   amount: number
@@ -34,6 +35,15 @@ export type TransferReceived = DomainEvent & {
   type: 'TransferReceived'
   accountId: string
   fromAccountId: string
+  amount: number
+  balanceAfter: number
+}
+
+export type TransferCompensated = DomainEvent & {
+  type: 'TransferCompensated'
+  sagaId: string
+  fromAccountId: string
+  toAccountId: string
   amount: number
   balanceAfter: number
 }
@@ -65,6 +75,7 @@ export type AccountEvent =
   | MoneyWithdrawn
   | TransferInitiated
   | TransferReceived
+  | TransferCompensated
   | BalanceLocked
   | BalanceUnlocked
   | TransactionReversed

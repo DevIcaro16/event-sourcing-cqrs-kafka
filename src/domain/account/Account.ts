@@ -73,11 +73,12 @@ export class Account extends AggregateRoot {
     })
   }
 
-  initiateTransfer(toAccountId: string, amount: number): void {
+  initiateTransfer(toAccountId: string, amount: number, sagaId: string): void {
     if (amount <= 0) throw new InvalidAmountError(amount)
     if (amount > this.availableBalance) throw new InsufficientFundsError(this.availableBalance, amount)
     this.applyEvent({
       type: 'TransferInitiated',
+      sagaId,
       fromAccountId: this._id,
       toAccountId,
       amount,
@@ -91,6 +92,18 @@ export class Account extends AggregateRoot {
       type: 'TransferReceived',
       accountId: this._id,
       fromAccountId,
+      amount,
+      balanceAfter: this._balance + amount,
+      occurredAt: new Date(),
+    })
+  }
+
+  compensateTransfer(toAccountId: string, amount: number, sagaId: string): void {
+    this.applyEvent({
+      type: 'TransferCompensated',
+      sagaId,
+      fromAccountId: this._id,
+      toAccountId,
       amount,
       balanceAfter: this._balance + amount,
       occurredAt: new Date(),
@@ -162,6 +175,9 @@ export class Account extends AggregateRoot {
         this._lockedBalance -= e.amount
         break
       case 'TransactionReversed':
+        this._balance = e.balanceAfter
+        break
+      case 'TransferCompensated':
         this._balance = e.balanceAfter
         break
     }
