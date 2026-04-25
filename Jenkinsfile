@@ -74,7 +74,7 @@ pipeline {
                         usernameVariable: 'GHCR_USER',
                         passwordVariable: 'GHCR_TOKEN'
                     )]) {
-                        sh "echo '${GHCR_TOKEN}' | docker login ${REGISTRY} -u '${GHCR_USER}' --password-stdin"
+                        sh 'echo "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin'
                         sh "docker build -t ${fullImage} ."
                         sh "docker push ${fullImage}"
                         sh "docker logout ${REGISTRY}"
@@ -98,7 +98,7 @@ pipeline {
                         git config user.email "jenkins@banking-ci"
                         git config user.name "Jenkins CI"
                         git add k8s/overlays/${OVERLAY}/kustomization.yaml
-                        git commit -m "ci(${OVERLAY}): update image tag to ${GIT_SHORT} [skip ci]"
+                        git commit -m "ci(${OVERLAY}): update image tag to ${GIT_SHORT} [skip ci]" || true
                         git push https://${GIT_USER}:${GIT_TOKEN}@github.com/devicaro16/banking-event-sourcing.git HEAD:${BRANCH_NAME}
                     """
                 }
