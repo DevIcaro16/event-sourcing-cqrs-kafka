@@ -6,6 +6,10 @@ import Redis from 'ioredis'
 import { Kafka } from 'kafkajs'
 import { PostgresEventStore } from './src/infrastructure/postgres/PostgresEventStore'
 import { PostgresIdempotencyStore } from './src/infrastructure/postgres/PostgresIdempotencyStore'
+import { PostgresSagaStore } from './src/infrastructure/postgres/PostgresSagaStore'
+import { TransferSagaConsumer } from './src/infrastructure/kafka/TransferSagaConsumer'
+import { SagaRetryWorker } from './src/infrastructure/kafka/SagaRetryWorker'
+import { sagaRoutes } from './src/http/routes/sagas'
 import { DrizzleReadModelStore } from './src/infrastructure/postgres/read/DrizzleReadModelStore'
 import { DrizzleProcessedEventsStore } from './src/infrastructure/postgres/read/DrizzleProcessedEventsStore'
 import { RedisSnapshotStore } from './src/infrastructure/redis/RedisSnapshotStore'
@@ -45,6 +49,7 @@ const kafka = new Kafka({
 
 const eventStore = new PostgresEventStore(writeSql)
 const idempotencyStore = new PostgresIdempotencyStore(writeSql)
+const sagaStore = new PostgresSagaStore(writeSql)
 const outboxStore = new PostgresOutboxStore(writeSql)
 const drizzleReadStore = new DrizzleReadModelStore(readSql)
 const processedEventsStore = new DrizzleProcessedEventsStore(readSql)
@@ -75,11 +80,16 @@ await dlqPublisher.connect()
 
 const outboxRelay = new OutboxRelay(outboxStore, kafkaPublisher, OUTBOX_POLL_INTERVAL_MS)
 
+const sagaSubscriber = KafkaMessageSubscriber.create(kafka, 'banking.account.events', 'banking-saga')
+const sagaConsumer = new TransferSagaConsumer(sagaStore, eventStore, snapshotStore)
+const sagaRetryWorker = new SagaRetryWorker(sagaStore, eventStore, snapshotStore)
+
 const deps = { eventStore, snapshotStore }
 
 withHttpMetrics(new Elysia())
   .get('/', ({ redirect }) => redirect('/swagger'))
-  .use(accountRoutes(deps, readStoreWithCache, cacheInvalidator, canonicalCache, idempotencyStore))
+  .use(accountRoutes(deps, readStoreWithCache, cacheInvalidator, canonicalCache, idempotencyStore, sagaStore))
+  .use(sagaRoutes(sagaStore))
   .use(swagger({
     documentation: {
       info: {
@@ -94,6 +104,7 @@ withHttpMetrics(new Elysia())
     console.log(`Banking API running on port ${PORT}`)
     console.log(`Swagger UI: http://localhost:${PORT}/swagger`)
     outboxRelay.start()
+    sagaRetryWorker.start()
   })
 
 // Background Kafka consumer — roda no mesmo processo que o HTTP server
@@ -109,9 +120,24 @@ await kafkaSubscriber.subscribe(async (events, aggregateId) => {
   }
 })
 
+// Saga consumer — grupo banking-saga, filtra TransferInitiated
+await sagaSubscriber.subscribe(async (events) => {
+  for (const event of events) {
+    if (event.type === 'TransferInitiated') {
+      try {
+        await sagaConsumer.handleEvent(event)
+      } catch (err) {
+        console.error('SagaConsumer: erro ao processar TransferInitiated', { err })
+      }
+    }
+  }
+})
+
 const shutdown = async () => {
   await outboxRelay.stop()
+  await sagaRetryWorker.stop()
   await kafkaSubscriber.close()
+  await sagaSubscriber.close()
   await kafkaPublisher.close()
   await dlqPublisher.close()
   await redis.quit()
