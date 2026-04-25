@@ -137,7 +137,7 @@ export function accountRoutes(
           'POST /accounts/transfer',
           idempotencyStore,
           async () => {
-            await handleTransfer({ fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
+            await handleTransfer({ sagaId: crypto.randomUUID(), fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
             return { fromAccountId: body.fromAccountId, toAccountId: body.toAccountId }
           },
         )
