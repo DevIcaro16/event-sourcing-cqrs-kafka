@@ -182,6 +182,27 @@ export class AccountProjector {
         })
         break
       }
+
+      case 'TransferCompensated': {
+        const current = await this.readStore.getBalance(event.fromAccountId)
+        if (!current) break
+        const newBalance = event.balanceAfter
+        await this.readStore.upsertBalance({
+          ...current,
+          balance:          newBalance,
+          availableBalance: newBalance - current.lockedBalance,
+          lastEventSeq:     current.lastEventSeq + 1,
+        })
+        await this.readStore.appendTransaction({
+          accountId:    event.fromAccountId,
+          eventType:    'TransferCompensated',
+          amount:       event.amount,
+          balanceAfter: event.balanceAfter,
+          description:  `Transfer to ${event.toAccountId} compensated (saga ${event.sagaId})`,
+          occurredAt:   event.occurredAt,
+        })
+        break
+      }
     }
   }
 }
