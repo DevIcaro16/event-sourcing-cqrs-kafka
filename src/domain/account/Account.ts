@@ -164,7 +164,7 @@ export class Account extends AggregateRoot {
         this._balance = e.balanceAfter
         break
       case 'TransferInitiated':
-        this._balance -= e.amount
+        this._balance = e.balanceAfter
         break
       case 'TransferReceived':
         this._balance = e.balanceAfter

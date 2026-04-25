@@ -163,7 +163,18 @@ export function accountRoutes(
                 nextRetryAt:   null,
               })
             }
-            await handleTransfer({ sagaId, fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
+            try {
+              await handleTransfer({ sagaId, fromAccountId: body.fromAccountId, toAccountId: body.toAccountId, amount: body.amount }, deps)
+            } catch (err) {
+              if (sagaStore) {
+                try {
+                  await sagaStore.update(sagaId, { status: 'FAILED', attempt: 0, nextRetryAt: null })
+                } catch {
+                  // best-effort cleanup; saga will remain in PENDING if this also fails
+                }
+              }
+              throw err
+            }
             return { sagaId, status: 'PENDING' as const }
           },
         )

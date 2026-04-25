@@ -55,6 +55,7 @@ export class PostgresSagaStore implements SagaStore {
       SELECT saga_id, from_account_id, to_account_id, amount, status, attempt, next_retry_at, created_at, updated_at
       FROM transfer_sagas
       WHERE status = 'RETRY' AND next_retry_at <= NOW()
+      LIMIT 100
     `
     return rows.map(mapRow)
   }
