@@ -1,0 +1,27 @@
+FROM jenkins/jenkins:lts-jdk17
+
+USER root
+
+RUN apt-get update && apt-get install -y \
+    docker.io \
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+# SonarScanner CLI
+ENV SONAR_SCANNER_VERSION=6.2.1.4610
+RUN curl -fsSL \
+    "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-x64.zip" \
+    -o /tmp/sonar-scanner.zip \
+    && unzip /tmp/sonar-scanner.zip -d /opt \
+    && ln -s /opt/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-x64/bin/sonar-scanner /usr/local/bin/sonar-scanner \
+    && rm /tmp/sonar-scanner.zip
+
+COPY jenkins-plugins.txt /usr/share/jenkins/ref/plugins.txt
+RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt
+
+USER jenkins
