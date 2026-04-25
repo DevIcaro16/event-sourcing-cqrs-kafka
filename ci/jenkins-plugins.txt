@@ -1,7 +1,7 @@
-git:latest
-workflow-aggregator:latest
-docker-workflow:latest
-sonar:latest
-credentials-binding:latest
-github:latest
-pipeline-stage-view:latest
+git
+workflow-aggregator
+docker-workflow
+sonar
+credentials-binding
+github
+pipeline-stage-view
