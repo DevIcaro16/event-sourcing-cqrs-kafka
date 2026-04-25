@@ -1,4 +1,3 @@
-// src/application/commands/LockBalance.ts
 import type { CommandDeps } from './_loadAccount'
 import { loadAccount } from './_loadAccount'
 import { ConcurrencyError } from '../ports/EventStore'
@@ -20,7 +19,6 @@ export async function handleLockBalance(
     account.lockBalance(command.amount, command.reason)
     try {
       await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
-      await deps.publisher.publish(account.pendingEvents, command.accountId)
       return
     } catch (err) {
       if (err instanceof ConcurrencyError && attempt < MAX_RETRIES - 1) continue
