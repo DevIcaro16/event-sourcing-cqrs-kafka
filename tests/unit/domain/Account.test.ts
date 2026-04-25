@@ -232,5 +232,7 @@ describe('Account.compensateTransfer', () => {
     expect(e.sagaId).toBe('saga-1')
     expect(e.amount).toBe(300)
     expect(e.balanceAfter).toBe(1000)
+    expect(e.fromAccountId).toBe('acc-1')
+    expect(e.toAccountId).toBe('acc-2')
   })
 })
