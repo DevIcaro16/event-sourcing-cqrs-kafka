@@ -39,16 +39,21 @@ export class PostgresSagaStore implements SagaStore {
   }
 
   async update(sagaId: string, patch: { status: SagaStatus; attempt: number; nextRetryAt: Date | null }): Promise<void> {
-    await this.sql`
+    const result = await this.sql<{ saga_id: string }[]>`
       UPDATE transfer_sagas
       SET status = ${patch.status}, attempt = ${patch.attempt}, next_retry_at = ${patch.nextRetryAt}, updated_at = NOW()
       WHERE saga_id = ${sagaId}
+      RETURNING saga_id
     `
+    if (result.length === 0) {
+      throw new Error(`SagaStore.update: saga not found: ${sagaId}`)
+    }
   }
 
   async getPendingRetries(): Promise<TransferSaga[]> {
     const rows = await this.sql<SagaRow[]>`
-      SELECT * FROM transfer_sagas
+      SELECT saga_id, from_account_id, to_account_id, amount, status, attempt, next_retry_at, created_at, updated_at
+      FROM transfer_sagas
       WHERE status = 'RETRY' AND next_retry_at <= NOW()
     `
     return rows.map(mapRow)
@@ -56,7 +61,8 @@ export class PostgresSagaStore implements SagaStore {
 
   async findById(sagaId: string): Promise<TransferSaga | null> {
     const rows = await this.sql<SagaRow[]>`
-      SELECT * FROM transfer_sagas WHERE saga_id = ${sagaId}
+      SELECT saga_id, from_account_id, to_account_id, amount, status, attempt, next_retry_at, created_at, updated_at
+      FROM transfer_sagas WHERE saga_id = ${sagaId}
     `
     return rows[0] ? mapRow(rows[0]) : null
   }
