@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'bun:test'
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'bun:test'
 import postgres from 'postgres'
 import Redis from 'ioredis'
 import { readFileSync } from 'fs'
@@ -38,7 +38,7 @@ beforeAll(async () => {
   await readSql.unsafe(readSchema)
 })
 
-afterEach(async () => {
+beforeEach(async () => {
   await writeSql`TRUNCATE TABLE events, outbox, idempotency_keys`
 })
 

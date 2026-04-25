@@ -11,6 +11,8 @@ const kafka      = new Kafka({ clientId: 'banking-test', brokers: KAFKA_BROKERS 
 const publisher  = KafkaMessagePublisher.create(kafka, TEST_TOPIC)
 const subscriber = KafkaMessageSubscriber.create(kafka, TEST_TOPIC, `banking-test-${Date.now()}`)
 
+let activeHandler: ((events: DomainEvent[], aggregateId: string) => Promise<void>) | null = null
+
 beforeAll(async () => {
   const admin = kafka.admin()
   await admin.connect()
@@ -19,7 +21,13 @@ beforeAll(async () => {
     topics: [{ topic: TEST_TOPIC, numPartitions: 1, replicationFactor: 1 }],
   })
   await admin.disconnect()
+
   await publisher.connect()
+  await subscriber.subscribe(async (events, aggregateId) => {
+    await activeHandler?.(events, aggregateId)
+  })
+  // Aguarda o fetch loop estabilizar após GROUP_JOIN
+  await Bun.sleep(1000)
 })
 
 afterAll(async () => {
@@ -32,10 +40,10 @@ describe('Kafka round-trip: publish → subscribe', () => {
     const receivedEvents: DomainEvent[] = []
     let receivedAggregateId = ''
 
-    await subscriber.subscribe(async (events, aggregateId) => {
+    activeHandler = async (events, aggregateId) => {
       receivedEvents.push(...events)
       receivedAggregateId = aggregateId
-    })
+    }
 
     const aggregateId = `test-acc-${Date.now()}`
     const sentEvents: DomainEvent[] = [
