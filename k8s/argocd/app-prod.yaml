@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/devicaro16/banking-event-sourcing.git
+    repoURL: https://github.com/DevIcaro16/event-sourcing-cqrs-kafka
     targetRevision: main
     path: k8s/overlays/prod
   destination:
