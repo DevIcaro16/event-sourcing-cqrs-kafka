@@ -4,6 +4,7 @@ import { ConcurrencyError } from '../ports/EventStore'
 import { transactionsTotal, transactionAmount } from '../../infrastructure/telemetry/metrics'
 
 export type TransferCommand = {
+  sagaId: string
   fromAccountId: string
   toAccountId: string
   amount: number
@@ -16,15 +17,10 @@ export async function handleTransfer(
   deps: CommandDeps,
 ): Promise<void> {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const [from, to] = await Promise.all([
-      loadAccount(command.fromAccountId, deps.eventStore, deps.snapshotStore),
-      loadAccount(command.toAccountId, deps.eventStore, deps.snapshotStore),
-    ])
-    from.initiateTransfer(command.toAccountId, command.amount)
-    to.receiveTransfer(command.fromAccountId, command.amount)
+    const from = await loadAccount(command.fromAccountId, deps.eventStore, deps.snapshotStore)
+    from.initiateTransfer(command.toAccountId, command.amount, command.sagaId)
     try {
       await deps.eventStore.append(command.fromAccountId, 'Account', from.pendingEvents, from.baseVersion)
-      await deps.eventStore.append(command.toAccountId, 'Account', to.pendingEvents, to.baseVersion)
       transactionsTotal.add(1, { type: 'transfer' })
       transactionAmount.record(command.amount, { type: 'transfer' })
       return

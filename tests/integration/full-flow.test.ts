@@ -19,6 +19,7 @@ import { handleDeposit } from '../../src/application/commands/Deposit'
 import { handleWithdraw } from '../../src/application/commands/Withdraw'
 import { handleLockBalance } from '../../src/application/commands/LockBalance'
 import { handleTransfer } from '../../src/application/commands/Transfer'
+import { loadAccount } from '../../src/application/commands/_loadAccount'
 import { getBalance } from '../../src/application/queries/GetBalance'
 import { getStatement } from '../../src/application/queries/GetStatement'
 
@@ -139,16 +140,31 @@ describe('Fluxo completo: comando → projeção → query', () => {
 
   it('transferência atualiza saldos de ambas as contas', async () => {
     const fromId = crypto.randomUUID()
-    const toId   = crypto.randomUUID()
+    const toId = crypto.randomUUID()
     await handleOpenAccount({ accountId: fromId, ownerId: 'from-owner', initialBalance: 1000 }, deps)
-    await handleOpenAccount({ accountId: toId,   ownerId: 'to-owner',   initialBalance: 200  }, deps)
-    await handleTransfer({ fromAccountId: fromId, toAccountId: toId, amount: 400 }, deps)
+    await handleOpenAccount({ accountId: toId, ownerId: 'to-owner', initialBalance: 500 }, deps)
+    await outboxRelay.processOnce()
+
+    // Commita TransferInitiated (apenas débito no remetente)
+    const sagaId = crypto.randomUUID()
+    await handleTransfer({ sagaId, fromAccountId: fromId, toAccountId: toId, amount: 400 }, deps)
+
+    const fromEvents = await deps.eventStore.load(fromId)
+    const transferEvent = fromEvents.find(e => e.type === 'TransferInitiated') as import('../../src/domain/account/AccountEvents').TransferInitiated
+    expect(transferEvent.sagaId).toBe(sagaId)
+
+    // Simula passo do saga consumer: credita conta destino
+    const to = await loadAccount(toId, deps.eventStore, deps.snapshotStore)
+    to.receiveTransfer(fromId, 400)
+    await deps.eventStore.append(toId, 'Account', to.pendingEvents, to.baseVersion)
+
     await outboxRelay.processOnce()
 
     const fromBalance = await getBalance(fromId, readStore, integrityDeps)
-    const toBalance   = await getBalance(toId,   readStore, integrityDeps)
+    const toBalance = await getBalance(toId, readStore, integrityDeps)
+
     expect(fromBalance.balance).toBe(600)
-    expect(toBalance.balance).toBe(600)
+    expect(toBalance.balance).toBe(900)
   })
 
   it('segundo acesso ao saldo vem do cache Redis', async () => {

@@ -87,7 +87,7 @@ describe('AccountProjector.project — TransferInitiated', () => {
     const fromId = 'acc-1'
 
     await projector.project([
-      { type: 'TransferInitiated', fromAccountId: fromId, toAccountId: 'acc-2', amount: 300, balanceAfter: 700, occurredAt: new Date() } as DomainEvent,
+      { type: 'TransferInitiated', sagaId: 'saga-test', fromAccountId: fromId, toAccountId: 'acc-2', amount: 300, balanceAfter: 700, occurredAt: new Date() } as DomainEvent,
     ], fromId)
 
     const balanceArg = (readStore.upsertBalance.mock.calls as unknown as AccountBalanceData[][])[0]![0]!
