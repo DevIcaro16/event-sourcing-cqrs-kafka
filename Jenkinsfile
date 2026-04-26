@@ -37,13 +37,13 @@ pipeline {
 
         stage('Integration Tests') {
             steps {
-                sh 'docker compose -f docker-compose.test.yml up -d'
-                sh 'sleep 15'
+                sh 'KAFKA_ADVERTISED_HOST=host.docker.internal docker compose -f docker-compose.test.yml up -d'
+                sh 'sleep 20'
                 sh '''
-                    TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/banking_test \
-                    TEST_READ_DATABASE_URL=postgres://postgres:postgres@localhost:5435/banking_read_test \
-                    TEST_REDIS_URL=redis://localhost:6380 \
-                    TEST_KAFKA_BROKERS=localhost:9093 \
+                    TEST_DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5433/banking_test \
+                    TEST_READ_DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5435/banking_read_test \
+                    TEST_REDIS_URL=redis://host.docker.internal:6380 \
+                    TEST_KAFKA_BROKERS=host.docker.internal:9093 \
                     bun test tests/integration
                 '''
             }
@@ -99,7 +99,7 @@ pipeline {
                         git config user.name "Jenkins CI"
                         git add k8s/overlays/${OVERLAY}/kustomization.yaml
                         git commit -m "ci(${OVERLAY}): update image tag to ${GIT_SHORT} [skip ci]" || true
-                        git push https://${GIT_USER}:${GIT_TOKEN}@github.com/devicaro16/banking-event-sourcing.git HEAD:${BRANCH_NAME}
+                        git push https://${GIT_USER}:${GIT_TOKEN}@github.com/DevIcaro16/event-sourcing-cqrs-kafka.git HEAD:${BRANCH_NAME}
                     """
                 }
             }
