@@ -64,14 +64,14 @@ spec:
               memory: 512Mi
           readinessProbe:
             httpGet:
-              path: /
+              path: /health/ready
               port: 3001
             initialDelaySeconds: 10
             periodSeconds: 5
             failureThreshold: 6
           livenessProbe:
             httpGet:
-              path: /
+              path: /health/live
               port: 3001
             initialDelaySeconds: 30
             periodSeconds: 10

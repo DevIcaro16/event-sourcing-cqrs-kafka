@@ -23,6 +23,7 @@ import { OutboxRelay } from './src/infrastructure/kafka/OutboxRelay'
 import { retryWithBackoff } from './src/infrastructure/kafka/retryWithBackoff'
 import { PostgresOutboxStore } from './src/infrastructure/postgres/PostgresOutboxStore'
 import { accountRoutes } from './src/http/routes/accounts'
+import { healthRoutes } from './src/http/routes/health'
 import { withHttpMetrics } from './src/http/middleware/httpMetrics'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/banking'
@@ -88,6 +89,7 @@ const deps = { eventStore, snapshotStore }
 
 withHttpMetrics(new Elysia())
   .get('/', ({ redirect }) => redirect('/swagger'))
+  .use(healthRoutes(writeSql, readSql, redis, kafka))
   .use(accountRoutes(deps, readStoreWithCache, cacheInvalidator, canonicalCache, idempotencyStore, sagaStore))
   .use(sagaRoutes(sagaStore))
   .use(swagger({
