@@ -18,7 +18,7 @@ pipeline {
                 checkout scm
                 script {
                     env.GIT_SHORT    = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    env.BRANCH_NAME  = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    env.BRANCH_NAME  = (env.GIT_BRANCH ?: '').replaceFirst('origin/', '').trim()
                     env.OVERLAY      = env.BRANCH_NAME == 'main' ? 'prod' : 'dev'
                 }
             }
