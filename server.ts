@@ -99,7 +99,10 @@ withHttpMetrics(new Elysia())
         version: '0.3.0',
         description: 'API bancária com Event Sourcing e CQRS. Comandos retornam 202 (async); consultas leem do read model (Redis + Postgres). Projeções via Kafka.',
       },
-      tags: [{ name: 'Accounts', description: 'Operações de conta bancária' }],
+      tags: [
+        { name: 'Accounts', description: 'Operações de conta bancária' },
+        { name: 'Health', description: 'Liveness e readiness probes' },
+      ],
     },
   }))
   .listen(PORT, () => {

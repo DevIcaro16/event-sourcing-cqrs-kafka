@@ -5,6 +5,8 @@ import type { Kafka } from 'kafkajs'
 
 type CheckStatus = 'ok' | 'fail'
 
+const tags = ['Health']
+
 const HealthResponse = t.Object({
   status: t.Union([t.Literal('ok'), t.Literal('degraded')]),
   checks: t.Optional(t.Object({
@@ -19,6 +21,11 @@ export function healthRoutes(writeSql: Sql, readSql: Sql, redis: Redis, kafka: K
   return new Elysia({ prefix: '/health' })
     .get('/live', () => ({ status: 'ok' as const }), {
       response: HealthResponse,
+      detail: {
+        tags,
+        summary: 'Liveness',
+        description: 'Retorna 200 se o processo está no ar.',
+      },
     })
     .get('/ready', async ({ set }) => {
       const checks: Record<string, CheckStatus> = {}
@@ -53,5 +60,10 @@ export function healthRoutes(writeSql: Sql, readSql: Sql, redis: Redis, kafka: K
       }
     }, {
       response: HealthResponse,
+      detail: {
+        tags,
+        summary: 'Readiness',
+        description: 'Retorna 200 se todas as dependências estão acessíveis (postgres_write, postgres_read, redis, kafka). Retorna 503 se alguma falhar.',
+      },
     })
 }
