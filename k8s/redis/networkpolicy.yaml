@@ -14,6 +14,14 @@ spec:
         - podSelector:
             matchLabels:
               app: banking-app
+          namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - banking
+                  - banking-dev
+                  - banking-prod
       ports:
         - protocol: TCP
           port: 6379
