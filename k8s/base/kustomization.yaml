@@ -6,7 +6,3 @@ resources:
   - configmap.yaml
   - hpa.yaml
   - pdb.yaml
-images:
-  - name: banking-event-sourcing:app
-    newName: ghcr.io/devicaro16/banking-event-sourcing
-    newTag: latest
