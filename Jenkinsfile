@@ -94,7 +94,7 @@ pipeline {
                     passwordVariable: 'GIT_TOKEN'
                 )]) {
                     sh """
-                        sed -i 's|newTag:.*|newTag: ${GIT_SHORT}|' k8s/overlays/${OVERLAY}/kustomization.yaml
+                        sed -i 's|newTag:.*|newTag: "${GIT_SHORT}"|' k8s/overlays/${OVERLAY}/kustomization.yaml
                         git config user.email "jenkins@banking-ci"
                         git config user.name "Jenkins CI"
                         git add k8s/overlays/${OVERLAY}/kustomization.yaml
