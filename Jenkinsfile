@@ -5,7 +5,7 @@ pipeline {
         REGISTRY      = 'ghcr.io'
         IMAGE_NAME    = 'devicaro16/banking-event-sourcing'
         SONAR_HOST    = 'http://sonarqube:9000'
-        GIT_REPO_URL  = 'https://github.com/devicaro16/banking-event-sourcing.git'
+        GIT_REPO_URL  = 'https://github.com/DevIcaro16/event-sourcing-cqrs-kafka'
     }
 
     triggers {
