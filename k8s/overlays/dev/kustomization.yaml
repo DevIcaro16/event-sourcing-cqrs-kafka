@@ -17,4 +17,4 @@ patches:
 images:
   - name: banking-event-sourcing:app
     newName: ghcr.io/devicaro16/banking-event-sourcing
-    newTag: 7038655
+    newTag: 2902981
