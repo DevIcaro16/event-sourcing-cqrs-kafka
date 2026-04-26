@@ -37,8 +37,7 @@ pipeline {
 
         stage('Integration Tests') {
             steps {
-                sh 'KAFKA_ADVERTISED_HOST=host.docker.internal docker compose -f docker-compose.test.yml up -d'
-                sh 'sleep 20'
+                sh 'KAFKA_ADVERTISED_HOST=host.docker.internal docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 60'
                 sh '''
                     TEST_DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5433/banking_test \
                     TEST_READ_DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5435/banking_read_test \
