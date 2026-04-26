@@ -20,3 +20,7 @@ patches:
         value: 5
     target:
       kind: HorizontalPodAutoscaler
+images:
+  - name: banking-event-sourcing:app
+    newName: ghcr.io/devicaro16/banking-event-sourcing
+    newTag: latest
