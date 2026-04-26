@@ -17,8 +17,9 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    env.GIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    env.OVERLAY   = env.BRANCH_NAME == 'main' ? 'prod' : 'dev'
+                    env.GIT_SHORT    = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.BRANCH_NAME  = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    env.OVERLAY      = env.BRANCH_NAME == 'main' ? 'prod' : 'dev'
                 }
             }
         }
@@ -63,7 +64,7 @@ pipeline {
 
         stage('Build & Push Image') {
             when {
-                anyOf { branch 'main'; branch 'develop' }
+                expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'develop' }
             }
             steps {
                 script {
@@ -84,7 +85,7 @@ pipeline {
 
         stage('Update Manifest') {
             when {
-                anyOf { branch 'main'; branch 'develop' }
+                expression { env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'develop' }
             }
             steps {
                 withCredentials([usernamePassword(
