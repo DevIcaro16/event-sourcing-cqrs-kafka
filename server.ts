@@ -21,6 +21,7 @@ import { KafkaMessagePublisher } from './src/infrastructure/kafka/KafkaMessagePu
 import { KafkaMessageSubscriber } from './src/infrastructure/kafka/KafkaMessageSubscriber'
 import { OutboxRelay } from './src/infrastructure/kafka/OutboxRelay'
 import { DLQConsumer } from './src/infrastructure/kafka/DLQConsumer'
+import { CircuitBreakerPublisher } from './src/infrastructure/kafka/CircuitBreakerPublisher'
 import { retryWithBackoff } from './src/infrastructure/kafka/retryWithBackoff'
 import { PostgresOutboxStore } from './src/infrastructure/postgres/PostgresOutboxStore'
 import { accountRoutes } from './src/http/routes/accounts'
@@ -80,7 +81,8 @@ await admin.disconnect()
 await kafkaPublisher.connect()
 await dlqPublisher.connect()
 
-const outboxRelay = new OutboxRelay(outboxStore, kafkaPublisher, OUTBOX_POLL_INTERVAL_MS)
+const protectedPublisher = new CircuitBreakerPublisher(kafkaPublisher, { threshold: 5, recoveryMs: 30_000 })
+const outboxRelay = new OutboxRelay(outboxStore, protectedPublisher, OUTBOX_POLL_INTERVAL_MS)
 const dlqConsumer = new DLQConsumer(kafka)
 
 const sagaSubscriber = KafkaMessageSubscriber.create(kafka, 'banking.account.events', 'banking-saga')
