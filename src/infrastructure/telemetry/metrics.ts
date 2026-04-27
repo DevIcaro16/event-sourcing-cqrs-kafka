@@ -45,3 +45,7 @@ export const kafkaConsumerLag = meter.createObservableGauge('kafka_consumer_lag'
 export const dlqTotal = meter.createCounter('kafka_dlq_messages_total', {
   description: 'Total messages sent to DLQ by original topic',
 })
+
+export const circuitBreakerState = meter.createUpDownCounter('circuit_breaker_open', {
+  description: 'Circuit breaker open state by name (1 = OPEN, 0 = CLOSED/HALF_OPEN)',
+})
