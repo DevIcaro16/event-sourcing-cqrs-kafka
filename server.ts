@@ -1,4 +1,4 @@
-import { meterProvider } from './src/infrastructure/telemetry/otel'
+import { meterProvider, tracerProvider } from './src/infrastructure/telemetry/otel'
 import { Elysia } from 'elysia'
 import { swagger } from '@elysiajs/swagger'
 import postgres from 'postgres'
@@ -155,6 +155,7 @@ const shutdown = async () => {
   await writeSql.end()
   await readSql.end()
   await meterProvider.shutdown()
+  await tracerProvider.shutdown()
   process.exit(0)
 }
 process.on('SIGTERM', shutdown)

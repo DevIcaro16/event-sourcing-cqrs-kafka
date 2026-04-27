@@ -2,6 +2,7 @@ import type { Admin, Kafka, Consumer } from 'kafkajs'
 import type { MessageSubscriber } from '../../application/ports/MessageSubscriber'
 import type { DomainEvent } from '../../domain/shared/DomainEvent'
 import { kafkaConsumedTotal, kafkaConsumerLag } from '../telemetry/metrics'
+import { propagation, context, trace, SpanKind } from '@opentelemetry/api'
 
 type BrokerMessage = {
   aggregateId: string
@@ -72,18 +73,47 @@ export class KafkaMessageSubscriber implements MessageSubscriber {
           autoCommit: false,
           eachMessage: async ({ topic, partition, message }) => {
             if (!message.value) return
+
             const { aggregateId, events }: BrokerMessage = JSON.parse(message.value.toString())
-            const types = events.map((e: any) => e.type).join(', ')
-            console.log(`[kafka:consumer] received ${events.length} event(s) [${types}] ← aggregateId=${aggregateId} offset=${message.offset}`)
-            const parsed = events.map(e => ({ ...e, occurredAt: new Date(e.occurredAt) })) as DomainEvent[]
-            await handler(parsed, aggregateId)
-            await this.consumer.commitOffsets([{
-              topic,
-              partition,
-              offset: (Number(message.offset) + 1).toString(),
-            }])
-            kafkaConsumedTotal.add(events.length, { topic, group: this.groupId })
-            console.log(`[kafka:consumer] committed offset=${Number(message.offset) + 1} partition=${partition}`)
+
+            const headers: Record<string, string> = {}
+            for (const [k, v] of Object.entries(message.headers ?? {})) {
+              if (v != null) headers[k] = Buffer.isBuffer(v) ? v.toString() : String(v)
+            }
+            const parentCtx = propagation.extract(context.active(), headers)
+
+            const tracer = trace.getTracer('banking-kafka')
+            const span = tracer.startSpan(`kafka.consume ${topic}`, {
+              kind: SpanKind.CONSUMER,
+              attributes: {
+                'messaging.system': 'kafka',
+                'messaging.destination': topic,
+                'messaging.aggregate_id': aggregateId,
+                'messaging.event_count': events.length,
+              },
+            }, parentCtx)
+
+            await context.with(trace.setSpan(parentCtx, span), async () => {
+              try {
+                const types = events.map((e: any) => e.type).join(', ')
+                console.log(`[kafka:consumer] received ${events.length} event(s) [${types}] ← aggregateId=${aggregateId} offset=${message.offset}`)
+                const parsed = events.map(e => ({ ...e, occurredAt: new Date(e.occurredAt) })) as DomainEvent[]
+                await handler(parsed, aggregateId)
+                await this.consumer.commitOffsets([{
+                  topic,
+                  partition,
+                  offset: (Number(message.offset) + 1).toString(),
+                }])
+                kafkaConsumedTotal.add(events.length, { topic, group: this.groupId })
+                console.log(`[kafka:consumer] committed offset=${Number(message.offset) + 1} partition=${partition}`)
+                span.setStatus({ code: 1 })
+              } catch (err) {
+                span.setStatus({ code: 2, message: (err as Error).message })
+                throw err
+              } finally {
+                span.end()
+              }
+            })
           },
         }).catch(reject)
       })
