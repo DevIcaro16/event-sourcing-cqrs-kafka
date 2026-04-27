@@ -41,3 +41,7 @@ export const kafkaConsumedTotal = meter.createCounter('kafka_messages_consumed_t
 export const kafkaConsumerLag = meter.createObservableGauge('kafka_consumer_lag', {
   description: 'Kafka consumer lag by topic, partition and group',
 })
+
+export const dlqTotal = meter.createCounter('kafka_dlq_messages_total', {
+  description: 'Total messages sent to DLQ by original topic',
+})

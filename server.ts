@@ -20,6 +20,7 @@ import { AccountProjector } from './src/application/projectors/AccountProjector'
 import { KafkaMessagePublisher } from './src/infrastructure/kafka/KafkaMessagePublisher'
 import { KafkaMessageSubscriber } from './src/infrastructure/kafka/KafkaMessageSubscriber'
 import { OutboxRelay } from './src/infrastructure/kafka/OutboxRelay'
+import { DLQConsumer } from './src/infrastructure/kafka/DLQConsumer'
 import { retryWithBackoff } from './src/infrastructure/kafka/retryWithBackoff'
 import { PostgresOutboxStore } from './src/infrastructure/postgres/PostgresOutboxStore'
 import { accountRoutes } from './src/http/routes/accounts'
@@ -80,6 +81,7 @@ await kafkaPublisher.connect()
 await dlqPublisher.connect()
 
 const outboxRelay = new OutboxRelay(outboxStore, kafkaPublisher, OUTBOX_POLL_INTERVAL_MS)
+const dlqConsumer = new DLQConsumer(kafka)
 
 const sagaSubscriber = KafkaMessageSubscriber.create(kafka, 'banking.account.events', 'banking-saga')
 const sagaConsumer = new TransferSagaConsumer(sagaStore, eventStore, snapshotStore)
@@ -110,6 +112,7 @@ withHttpMetrics(new Elysia())
     console.log(`Swagger UI: http://localhost:${PORT}/swagger`)
     outboxRelay.start()
     sagaRetryWorker.start()
+    dlqConsumer.start('banking.account.events.dlq')
   })
 
 // Background Kafka consumer — roda no mesmo processo que o HTTP server
@@ -145,6 +148,7 @@ const shutdown = async () => {
   await sagaSubscriber.close()
   await kafkaPublisher.close()
   await dlqPublisher.close()
+  await dlqConsumer.close()
   await redis.quit()
   await writeSql.end()
   await readSql.end()
