@@ -28,6 +28,9 @@ import { accountRoutes } from './src/presentation/routes/accounts'
 import { healthRoutes } from './src/presentation/routes/health'
 import { withHttpMetrics } from './src/presentation/middleware/httpMetrics'
 import { httpErrorHandler } from './src/presentation/errors/httpErrorHandler'
+import { OtelMetricsAdapter } from './src/infrastructure/telemetry/OtelMetricsAdapter'
+import { transactionsTotal, transactionAmount, accountsOpenedTotal } from './src/infrastructure/telemetry/metrics'
+import { METRIC_TRANSACTIONS_TOTAL, METRIC_TRANSACTION_AMOUNT, METRIC_ACCOUNTS_OPENED_TOTAL } from './src/application/constants/metricNames'
 import { AccountController } from './src/presentation/controllers/AccountController'
 import { HealthController } from './src/presentation/controllers/HealthController'
 import { SagaController } from './src/presentation/controllers/SagaController'
@@ -93,7 +96,13 @@ const sagaSubscriber = KafkaMessageSubscriber.create(kafka, 'banking.account.eve
 const sagaConsumer = new TransferSagaConsumer(sagaStore, eventStore, snapshotStore)
 const sagaRetryWorker = new SagaRetryWorker(sagaStore, eventStore, snapshotStore)
 
-const deps = { eventStore, snapshotStore }
+const metricsAdapter = new OtelMetricsAdapter(
+  { [METRIC_ACCOUNTS_OPENED_TOTAL]: accountsOpenedTotal,
+    [METRIC_TRANSACTIONS_TOTAL]: transactionsTotal },
+  { [METRIC_TRANSACTION_AMOUNT]: transactionAmount },
+)
+
+const deps = { eventStore, snapshotStore, metrics: metricsAdapter }
 
 const accountController = new AccountController(deps, readStoreWithCache, cacheInvalidator, canonicalCache, idempotencyStore, sagaStore)
 const healthController  = new HealthController(writeSql, readSql, redis, kafka)
