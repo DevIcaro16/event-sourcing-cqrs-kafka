@@ -1,6 +1,6 @@
 import type { CommandDeps } from './_loadAccount'
 import { Account } from '../../domain/account/Account'
-import { accountsOpenedTotal } from '../../infrastructure/telemetry/metrics'
+import { METRIC_ACCOUNTS_OPENED_TOTAL } from '../constants/metricNames'
 
 export type OpenAccountCommand = {
   accountId: string
@@ -14,5 +14,5 @@ export async function handleOpenAccount(
 ): Promise<void> {
   const account = Account.open(command.accountId, command.ownerId, command.initialBalance)
   await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
-  accountsOpenedTotal.add(1)
+  deps.metrics?.increment(METRIC_ACCOUNTS_OPENED_TOTAL)
 }
