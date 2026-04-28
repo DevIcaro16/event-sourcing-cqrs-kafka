@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import { Account } from '../../../src/domain/account/Account'
-import type { AccountSnapshot } from '../../../src/application/ports/SnapshotStore'
+import type { AccountSnapshot } from '../../../src/domain/account/Account'
 import type { DomainEvent } from '../../../src/domain/shared/DomainEvent'
 
 describe('Account.toSnapshot()', () => {

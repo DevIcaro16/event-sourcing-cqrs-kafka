@@ -1,10 +1,6 @@
-export type AccountSnapshot = {
-  id: string
-  ownerId: string
-  balance: number
-  lockedBalance: number
-  version: number
-}
+import type { AccountSnapshot } from '../../domain/account/Account'
+
+export type { AccountSnapshot }
 
 export interface SnapshotStore {
   get(aggregateId: string): Promise<AccountSnapshot | null>

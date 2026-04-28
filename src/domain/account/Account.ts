@@ -3,7 +3,13 @@ import { AggregateRoot } from '../shared/AggregateRoot'
 import type { AccountEvent } from './AccountEvents'
 import { InvalidAmountError, InsufficientFundsError, InvalidReversalError } from './AccountErrors'
 import type { DomainEvent } from '../shared/DomainEvent'
-import type { AccountSnapshot } from '../../application/ports/SnapshotStore'
+export type AccountSnapshot = {
+  id: string
+  ownerId: string
+  balance: number
+  lockedBalance: number
+  version: number
+}
 
 export class Account extends AggregateRoot {
   private _id: string = ''
