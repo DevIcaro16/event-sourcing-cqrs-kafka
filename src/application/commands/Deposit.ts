@@ -1,7 +1,7 @@
 import type { CommandDeps } from './_loadAccount'
 import { loadAccount } from './_loadAccount'
-import { ConcurrencyError } from '../ports/EventStore'
-import { transactionsTotal, transactionAmount } from '../../infrastructure/telemetry/metrics'
+import { ConcurrencyError } from '@domain/account/AccountErrors'
+import { METRIC_TRANSACTIONS_TOTAL, METRIC_TRANSACTION_AMOUNT } from '../constants/metricNames'
 
 export type DepositCommand = {
   accountId: string
@@ -19,8 +19,8 @@ export async function handleDeposit(
     account.deposit(command.amount)
     try {
       await deps.eventStore.append(command.accountId, 'Account', account.pendingEvents, account.baseVersion)
-      transactionsTotal.add(1, { type: 'deposit' })
-      transactionAmount.record(command.amount, { type: 'deposit' })
+      deps.metrics?.increment(METRIC_TRANSACTIONS_TOTAL, { type: 'deposit' })
+      deps.metrics?.record(METRIC_TRANSACTION_AMOUNT, command.amount, { type: 'deposit' })
       return
     } catch (err) {
       if (err instanceof ConcurrencyError && attempt < MAX_RETRIES - 1) continue

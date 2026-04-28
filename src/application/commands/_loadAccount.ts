@@ -2,12 +2,14 @@ import { Account } from '../../domain/account/Account'
 import { AccountNotFoundError } from '../../domain/account/AccountErrors'
 import type { EventStore } from '../ports/EventStore'
 import type { SnapshotStore } from '../ports/SnapshotStore'
+import type { MetricsPort } from '../ports/MetricsPort'
 
 const SNAPSHOT_THRESHOLD = Number(process.env.SNAPSHOT_THRESHOLD ?? 50)
 
 export type CommandDeps = {
   eventStore: EventStore
   snapshotStore: SnapshotStore
+  metrics?: MetricsPort
 }
 
 export async function loadAccount(
