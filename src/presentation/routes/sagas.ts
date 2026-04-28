@@ -1,27 +1,11 @@
-// src/http/routes/sagas.ts
 import { Elysia, t } from 'elysia'
-import type { SagaStore } from '../../application/ports/SagaStore'
+import type { SagaController } from '../controllers/SagaController'
 
-export function sagaRoutes(sagaStore: SagaStore) {
+export function sagaRoutes(controller: SagaController) {
   return new Elysia({ prefix: '/sagas' })
     .get(
       '/:sagaId',
-      async ({ params, set }) => {
-        const saga = await sagaStore.findById(params.sagaId)
-        if (!saga) {
-          set.status = 404
-          return { error: 'NotFound', message: `Saga not found: ${params.sagaId}` }
-        }
-        return {
-          sagaId:         saga.sagaId,
-          fromAccountId:  saga.fromAccountId,
-          toAccountId:    saga.toAccountId,
-          amount:         saga.amount,
-          status:         saga.status,
-          attempt:        saga.attempt,
-          createdAt:      saga.createdAt,
-        }
-      },
+      ({ params }) => controller.getSaga(params.sagaId),
       {
         response: {
           200: t.Object({
@@ -43,6 +27,6 @@ export function sagaRoutes(sagaStore: SagaStore) {
           summary: 'Status da saga',
           description: 'Retorna o status atual de uma saga de transferência.',
         },
-      }
+      },
     )
 }

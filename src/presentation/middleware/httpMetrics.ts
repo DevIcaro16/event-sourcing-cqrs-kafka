@@ -1,4 +1,3 @@
-// src/http/middleware/httpMetrics.ts
 import type { Elysia } from 'elysia'
 import { httpRequestDuration } from '../../infrastructure/telemetry/metrics'
 

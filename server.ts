@@ -9,7 +9,7 @@ import { PostgresIdempotencyStore } from './src/infrastructure/postgres/Postgres
 import { PostgresSagaStore } from './src/infrastructure/postgres/PostgresSagaStore'
 import { TransferSagaConsumer } from './src/infrastructure/kafka/TransferSagaConsumer'
 import { SagaRetryWorker } from './src/infrastructure/kafka/SagaRetryWorker'
-import { sagaRoutes } from './src/http/routes/sagas'
+import { sagaRoutes } from './src/presentation/routes/sagas'
 import { DrizzleReadModelStore } from './src/infrastructure/postgres/read/DrizzleReadModelStore'
 import { DrizzleProcessedEventsStore } from './src/infrastructure/postgres/read/DrizzleProcessedEventsStore'
 import { RedisSnapshotStore } from './src/infrastructure/redis/RedisSnapshotStore'
@@ -24,9 +24,13 @@ import { DLQConsumer } from './src/infrastructure/kafka/DLQConsumer'
 import { CircuitBreakerPublisher } from './src/infrastructure/kafka/CircuitBreakerPublisher'
 import { retryWithBackoff } from './src/infrastructure/kafka/retryWithBackoff'
 import { PostgresOutboxStore } from './src/infrastructure/postgres/PostgresOutboxStore'
-import { accountRoutes } from './src/http/routes/accounts'
-import { healthRoutes } from './src/http/routes/health'
-import { withHttpMetrics } from './src/http/middleware/httpMetrics'
+import { accountRoutes } from './src/presentation/routes/accounts'
+import { healthRoutes } from './src/presentation/routes/health'
+import { withHttpMetrics } from './src/presentation/middleware/httpMetrics'
+import { httpErrorHandler } from './src/presentation/errors/httpErrorHandler'
+import { AccountController } from './src/presentation/controllers/AccountController'
+import { HealthController } from './src/presentation/controllers/HealthController'
+import { SagaController } from './src/presentation/controllers/SagaController'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/banking'
 const READ_DATABASE_URL = process.env.READ_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5434/banking_read'
@@ -91,11 +95,16 @@ const sagaRetryWorker = new SagaRetryWorker(sagaStore, eventStore, snapshotStore
 
 const deps = { eventStore, snapshotStore }
 
+const accountController = new AccountController(deps, readStoreWithCache, cacheInvalidator, canonicalCache, idempotencyStore, sagaStore)
+const healthController  = new HealthController(writeSql, readSql, redis, kafka)
+const sagaController    = new SagaController(sagaStore)
+
 withHttpMetrics(new Elysia())
+  .onError(httpErrorHandler)
   .get('/', ({ redirect }) => redirect('/swagger'))
-  .use(healthRoutes(writeSql, readSql, redis, kafka))
-  .use(accountRoutes(deps, readStoreWithCache, cacheInvalidator, canonicalCache, idempotencyStore, sagaStore))
-  .use(sagaRoutes(sagaStore))
+  .use(healthRoutes(healthController))
+  .use(accountRoutes(accountController))
+  .use(sagaRoutes(sagaController))
   .use(swagger({
     documentation: {
       info: {

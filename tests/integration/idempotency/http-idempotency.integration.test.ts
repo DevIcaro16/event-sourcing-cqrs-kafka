@@ -9,7 +9,9 @@ import { DrizzleReadModelStore } from '../../../src/infrastructure/postgres/read
 import { RedisSnapshotStore } from '../../../src/infrastructure/redis/RedisSnapshotStore'
 import { RedisCacheInvalidator } from '../../../src/infrastructure/redis/RedisCacheInvalidator'
 import { RedisCanonicalBalanceCache } from '../../../src/infrastructure/redis/RedisCanonicalBalanceCache'
-import { accountRoutes } from '../../../src/http/routes/accounts'
+import { accountRoutes } from '../../../src/presentation/routes/accounts'
+import { AccountController } from '../../../src/presentation/controllers/AccountController'
+import { httpErrorHandler } from '../../../src/presentation/errors/httpErrorHandler'
 
 const WRITE_DB_URL = process.env.TEST_DATABASE_URL      ?? 'postgres://postgres:postgres@localhost:5433/banking_test'
 const READ_DB_URL  = process.env.TEST_READ_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5435/banking_read_test'
@@ -28,8 +30,11 @@ const canonicalCache   = new RedisCanonicalBalanceCache(redis)
 
 const deps = { eventStore, snapshotStore }
 
+const accountController = new AccountController(deps, readStore, cacheInvalidator, canonicalCache, idempotencyStore)
+
 const app = new Elysia()
-  .use(accountRoutes(deps, readStore, cacheInvalidator, canonicalCache, idempotencyStore))
+  .onError(httpErrorHandler)
+  .use(accountRoutes(accountController))
 
 beforeAll(async () => {
   const writeSchema = readFileSync('./src/infrastructure/postgres/schema.sql', 'utf-8')

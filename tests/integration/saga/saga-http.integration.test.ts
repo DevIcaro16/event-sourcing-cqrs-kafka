@@ -10,8 +10,11 @@ import { DrizzleReadModelStore } from '../../../src/infrastructure/postgres/read
 import { RedisSnapshotStore } from '../../../src/infrastructure/redis/RedisSnapshotStore'
 import { RedisCacheInvalidator } from '../../../src/infrastructure/redis/RedisCacheInvalidator'
 import { RedisCanonicalBalanceCache } from '../../../src/infrastructure/redis/RedisCanonicalBalanceCache'
-import { accountRoutes } from '../../../src/http/routes/accounts'
-import { sagaRoutes } from '../../../src/http/routes/sagas'
+import { accountRoutes } from '../../../src/presentation/routes/accounts'
+import { sagaRoutes } from '../../../src/presentation/routes/sagas'
+import { AccountController } from '../../../src/presentation/controllers/AccountController'
+import { SagaController } from '../../../src/presentation/controllers/SagaController'
+import { httpErrorHandler } from '../../../src/presentation/errors/httpErrorHandler'
 import { handleOpenAccount } from '../../../src/application/commands/OpenAccount'
 
 const WRITE_DB_URL = process.env.TEST_DATABASE_URL      ?? 'postgres://postgres:postgres@localhost:5433/banking_test'
@@ -30,9 +33,13 @@ const cacheInvalidator = new RedisCacheInvalidator(redis)
 const canonicalCache   = new RedisCanonicalBalanceCache(redis)
 const deps = { eventStore, snapshotStore }
 
+const accountController = new AccountController(deps, readStore, cacheInvalidator, canonicalCache, undefined, sagaStore)
+const sagaController    = new SagaController(sagaStore)
+
 const app = new Elysia()
-  .use(accountRoutes(deps, readStore, cacheInvalidator, canonicalCache, undefined, sagaStore))
-  .use(sagaRoutes(sagaStore))
+  .onError(httpErrorHandler)
+  .use(accountRoutes(accountController))
+  .use(sagaRoutes(sagaController))
 
 beforeAll(async () => {
   await writeSql.unsafe(readFileSync('./src/infrastructure/postgres/schema.sql', 'utf-8'))
