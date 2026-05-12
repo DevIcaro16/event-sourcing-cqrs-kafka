@@ -44,7 +44,7 @@ pipeline {
                     TEST_READ_DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5435/banking_read_test \
                     TEST_REDIS_URL=redis://host.docker.internal:6380 \
                     TEST_KAFKA_BROKERS=host.docker.internal:9093 \
-                    bun test tests/integration
+                    bun test apps/monolith/tests/integration
                 '''
             }
             post {
