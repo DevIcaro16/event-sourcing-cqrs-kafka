@@ -6,6 +6,13 @@ export class InvalidAmountError extends Error {
   }
 }
 
+export class ConcurrencyError extends Error {
+  constructor(aggregateId: string, expectedVersion: number) {
+    super(`Concurrency conflict for aggregate '${aggregateId}' at version ${expectedVersion}. Another process modified it first.`)
+    this.name = 'ConcurrencyError'
+  }
+}
+
 export class InsufficientFundsError extends Error {
   constructor(available: number, requested: number) {
     super(`Insufficient funds: available ${available}, requested ${requested}`)

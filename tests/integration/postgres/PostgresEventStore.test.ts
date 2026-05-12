@@ -2,10 +2,10 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'bun:test'
 import postgres from 'postgres'
 import { PostgresEventStore } from '../../../src/infrastructure/postgres/PostgresEventStore'
-import { ConcurrencyError } from '../../../src/application/ports/EventStore'
 import { PostgresOutboxStore } from '../../../src/infrastructure/postgres/PostgresOutboxStore'
 import { readFileSync } from 'fs'
 import type { DomainEvent } from '../../../src/domain/shared/DomainEvent'
+import { ConcurrencyError } from '@domain/account/AccountErrors'
 
 const TEST_DB_URL = process.env.TEST_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/banking_test'
 const sql = postgres(TEST_DB_URL)

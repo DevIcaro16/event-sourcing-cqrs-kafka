@@ -2,8 +2,7 @@ import type { SagaStore, TransferSaga } from '../../application/ports/SagaStore'
 import type { EventStore } from '../../application/ports/EventStore'
 import type { SnapshotStore } from '../../application/ports/SnapshotStore'
 import { loadAccount } from '../../application/commands/_loadAccount'
-import { ConcurrencyError } from '../../application/ports/EventStore'
-import { AccountNotFoundError } from '../../domain/account/AccountErrors'
+import { AccountNotFoundError, ConcurrencyError } from '../../domain/account/AccountErrors'
 
 const MAX_ATTEMPTS = 3
 const MAX_CONCURRENCY_RETRIES = 3
@@ -17,7 +16,7 @@ export class SagaRetryWorker {
     private readonly eventStore: EventStore,
     private readonly snapshotStore: SnapshotStore,
     private readonly intervalMs: number = 2000,
-  ) {}
+  ) { }
 
   start(): void {
     this.running = true

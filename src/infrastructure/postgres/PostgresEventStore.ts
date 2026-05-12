@@ -1,9 +1,9 @@
 // src/infrastructure/postgres/PostgresEventStore.ts
 import type postgres from 'postgres'
 import type { EventStore } from '../../application/ports/EventStore'
-import { ConcurrencyError } from '../../application/ports/EventStore'
 import type { DomainEvent } from '../../domain/shared/DomainEvent'
 import type { CanonicalBalance } from '../../application/ports/CanonicalBalanceCache'
+import { ConcurrencyError } from '@domain/account/AccountErrors'
 
 export class PostgresEventStore implements EventStore {
   constructor(private readonly sql: postgres.Sql) { }
@@ -120,7 +120,7 @@ export class PostgresEventStore implements EventStore {
     `
     if (rows[0].balance == null) return null
     return {
-      balance:       Number(rows[0].balance),
+      balance: Number(rows[0].balance),
       lockedBalance: Number(rows[0].locked_balance),
     }
   }

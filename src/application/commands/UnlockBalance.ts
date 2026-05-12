@@ -1,6 +1,6 @@
+import { ConcurrencyError } from '@domain/account/AccountErrors'
 import type { CommandDeps } from './_loadAccount'
 import { loadAccount } from './_loadAccount'
-import { ConcurrencyError } from '../ports/EventStore'
 
 export type UnlockBalanceCommand = {
   accountId: string

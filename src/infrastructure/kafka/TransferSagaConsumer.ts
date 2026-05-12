@@ -4,8 +4,7 @@ import type { SnapshotStore } from '../../application/ports/SnapshotStore'
 import type { TransferInitiated } from '../../domain/account/AccountEvents'
 import type { DomainEvent } from '../../domain/shared/DomainEvent'
 import { loadAccount } from '../../application/commands/_loadAccount'
-import { ConcurrencyError } from '../../application/ports/EventStore'
-import { AccountNotFoundError } from '../../domain/account/AccountErrors'
+import { AccountNotFoundError, ConcurrencyError } from '../../domain/account/AccountErrors'
 
 const MAX_CONCURRENCY_RETRIES = 3
 
@@ -14,7 +13,7 @@ export class TransferSagaConsumer {
     private readonly sagaStore: SagaStore,
     private readonly eventStore: EventStore,
     private readonly snapshotStore: SnapshotStore,
-  ) {}
+  ) { }
 
   async handleEvent(event: DomainEvent): Promise<void> {
     if (event.type !== 'TransferInitiated') return

@@ -1,13 +1,6 @@
 import type { DomainEvent } from '../../domain/shared/DomainEvent'
 import type { CanonicalBalance } from './CanonicalBalanceCache'
 
-export class ConcurrencyError extends Error {
-  constructor(aggregateId: string, expectedVersion: number) {
-    super(`Concurrency conflict for aggregate '${aggregateId}' at version ${expectedVersion}. Another process modified it first.`)
-    this.name = 'ConcurrencyError'
-  }
-}
-
 export interface EventStore {
   append(
     aggregateId: string,
