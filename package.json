@@ -11,6 +11,7 @@
     "start": "bun --cwd apps/monolith run start",
     "migrate": "bun --cwd apps/monolith run migrate",
     "test": "bun --cwd apps/monolith run test",
+    "test:unit": "bun --cwd apps/monolith run test:unit",
     "test:unit:coverage": "bun --cwd apps/monolith run test:unit:coverage",
     "test:integration": "bun --cwd apps/monolith run test:integration",
     "db:generate:read": "bun --cwd apps/monolith run db:generate:read",
