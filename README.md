@@ -4,6 +4,17 @@ A study banking system built on **Event Sourcing** and **CQRS**, running on a lo
 
 ---
 
+## Repo Layout
+
+This repository is a Bun workspaces monorepo.
+
+- `apps/monolith/` — the current banking application. All product code lives here for now.
+- `packages/` — reserved for shared packages (contracts, infrastructure, telemetry) introduced in upcoming sub-projects.
+
+Run commands from the **repo root**; they delegate into the appropriate workspace via `bun --cwd`.
+
+---
+
 ## Stack
 
 | Layer | Technology |
@@ -110,7 +121,7 @@ bun run monitoring:prometheus
 
 ```bash
 # Unit
-bun test tests/unit
+bun run test
 
 # Integration (requires services running)
 bun run test:integration
