@@ -39,4 +39,15 @@ describe('AccountOpened schema v1', () => {
     }
     expect(validate(invalid)).toBe(false)
   })
+
+  it('rejects negative initialBalance', () => {
+    const invalid = {
+      type: 'AccountOpened',
+      occurredAt: '2026-05-12T00:00:00.000Z',
+      accountId: 'acc-1',
+      ownerId: 'owner-1',
+      initialBalance: -1,
+    }
+    expect(validate(invalid)).toBe(false)
+  })
 })

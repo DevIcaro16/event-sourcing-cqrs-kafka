@@ -10,6 +10,6 @@ export const AccountOpenedSchema = {
     eventId: { type: 'string' },
     accountId: { type: 'string', minLength: 1 },
     ownerId: { type: 'string', minLength: 1 },
-    initialBalance: { type: 'number' },
+    initialBalance: { type: 'number', minimum: 0 },
   },
 } as const
